@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { PLANS, SUCCESS_STORIES } from './data.js'
+import { SUCCESS_STORIES } from './data.js'
+import { PLANS } from './lib/plans.ts'
 
 /**
  * Landing page — quiet luxury, not a directory site.
@@ -410,24 +411,68 @@ function Membership({ setPage }) {
           })}
         </div>
 
-        <motion.div
-          {...reveal}
-          className="mt-14 flex flex-wrap items-baseline justify-between gap-6 border-t border-vivahaa-line pt-10"
-        >
-          <div>
-            <Label className="text-vivahaa-gold">Elite · By Introduction</Label>
-            <p className="mt-4 max-w-lg text-[13.5px] leading-relaxed text-vivahaa-quiet">
-              A personal matchmaker, curated introductions, and complete discretion. From
-              ₹{PLANS.elite[0].price.toLocaleString('en-IN')} per month, by conversation only.
-            </p>
-          </div>
-          <button
-            onClick={() => setPage('register')}
-            className="font-mono text-[11px] uppercase tracking-[0.18em] text-vivahaa-maroon underline decoration-vivahaa-gold underline-offset-[6px]"
-          >
-            Request an introduction
-          </button>
+        <motion.div {...reveal} className="mt-24 max-w-xl border-t border-vivahaa-line pt-16">
+          <Label className="text-vivahaa-gold">Elite</Label>
+          <h2 className="mt-6 font-cormorant text-[clamp(2rem,4vw,2.9rem)] font-light leading-tight text-vivahaa-maroon">
+            For families who want a matchmaker, not a directory
+          </h2>
         </motion.div>
+
+        {/*
+          Elite cards stay within the Landing page's own restrained vivahaa.* palette
+          (no fourth colour, no switch to the app's separate elite/royal dark theme) —
+          a dark maroon ground is what signals "different tier" here, not a different
+          brand. This grid is the platform's real visual differentiator; see the note
+          in src/pages/Dashboard.tsx once it exists for the equivalent inside the app.
+        */}
+        <div className="mt-16 grid gap-px bg-vivahaa-gold/25 md:grid-cols-2">
+          {PLANS.elite.map((plan, index) => (
+            <motion.div
+              key={plan.id}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.8, delay: index * 0.1, ease: EASE_OUT }}
+              className="flex flex-col bg-vivahaa-maroon p-9 text-vivahaa-ivory"
+            >
+              <Label className="text-vivahaa-gold">{plan.name}</Label>
+              <p className="mt-7 font-cormorant text-5xl font-light">
+                ₹{plan.price.toLocaleString('en-IN')}
+              </p>
+              <Label className="mt-2 text-vivahaa-ivory/55">Per month</Label>
+
+              <ul className="mt-9 space-y-4">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex gap-3 text-[13.5px] leading-relaxed text-vivahaa-ivory/80">
+                    <span aria-hidden className="mt-[9px] h-px w-3 shrink-0 bg-vivahaa-gold" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              {plan.eliteBenefits && (
+                <>
+                  <Label className="mt-8 text-vivahaa-gold">Elite benefits</Label>
+                  <ul className="mt-4 flex-1 space-y-4">
+                    {plan.eliteBenefits.map((benefit) => (
+                      <li key={benefit} className="flex gap-3 text-[13.5px] leading-relaxed text-vivahaa-ivory/80">
+                        <span aria-hidden className="mt-[9px] h-px w-3 shrink-0 bg-vivahaa-gold" />
+                        {benefit}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              <button
+                onClick={() => setPage('register')}
+                className="mt-10 border border-vivahaa-gold bg-vivahaa-gold px-6 py-3.5 font-mono text-[11px] uppercase tracking-[0.2em] text-vivahaa-ink transition-colors duration-500 hover:bg-transparent hover:text-vivahaa-gold"
+              >
+                Request an introduction
+              </button>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </section>
   )

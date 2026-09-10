@@ -19,16 +19,14 @@ export const ADMIN = {
   gradientCard: 'linear-gradient(135deg, #16162A 0%, #1E1E35 100%)',
 }
 
+// Re-exported from src/lib/plans.ts, the single source of truth for pricing/benefits.
+// Kept in this exact shape (id/name/price/duration/features) so every legacy .jsx
+// file that already imports PLANS from here — Dealer.jsx's plan dropdown, etc. —
+// keeps working unchanged.
+import { PLANS as PLAN_SOURCE } from './lib/plans.ts'
 export const PLANS = {
-  standard: [
-    { id: 'silver',  name: 'Silver',  price: 499,  duration: 30, features: ['50 profile views/mo','Basic filters','Email support'] },
-    { id: 'gold',    name: 'Gold',    price: 699,  duration: 30, features: ['Unlimited views','Advanced filters','Priority support'] },
-    { id: 'diamond', name: 'Diamond', price: 899,  duration: 30, features: ['All Gold +','Horoscope match','Dedicated RM'] },
-  ],
-  elite: [
-    { id: 'platinum',     name: 'Platinum',      price: 1499, duration: 30, features: ['Curated matches','Concierge service','Exclusive events'] },
-    { id: 'platinumplus', name: 'Platinum Plus', price: 2499, duration: 30, features: ['All Platinum +','Personal matchmaker','VIP lounge access'] },
-  ],
+  standard: PLAN_SOURCE.standard.map(({ id, name, price, duration, features }) => ({ id, name, price, duration, features })),
+  elite: PLAN_SOURCE.elite.map(({ id, name, price, duration, features }) => ({ id, name, price, duration, features })),
 }
 
 export const CITIES = ['Coimbatore','Tirupur','Erode','Namakkal','Salem','Dindigul']
