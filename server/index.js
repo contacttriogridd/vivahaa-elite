@@ -63,6 +63,30 @@ const authMiddleware = async (req, res, next) => {
   } catch { return res.status(401).json({ message: 'Invalid or expired token' }) }
 }
 
+/**
+ * Shared shape for "the signed-in user's own full profile," used identically by
+ * register, login, and GET /api/auth/profile — so the dashboard has the complete
+ * picture immediately after registering or logging in, not only after a reload
+ * re-triggers the profile fetch. `full` must include the `privateProfile` relation.
+ * Never reuse this for another user's profile — see the note on GET /api/auth/profile.
+ */
+const serializeOwnProfile = (full) => {
+  const { password, privateProfile, ...publicFields } = full
+  return {
+    ...publicFields,
+    private: privateProfile
+      ? {
+          maritalStatus: privateProfile.maritalStatus,
+          hasChildren: privateProfile.hasChildren,
+          divorceDecreeConfirmed: privateProfile.divorceDecreeConfirmed,
+          widowDeclarationConfirmed: privateProfile.widowDeclarationConfirmed,
+          spousePassedOn: privateProfile.spousePassedOn,
+          totalAssetValue: privateProfile.totalAssetValue,
+        }
+      : null,
+  }
+}
+
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 
 // POST /api/auth/login
@@ -90,9 +114,13 @@ app.post('/api/auth/login', async (req, res) => {
     res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: cookieMaxAge })
     res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: 7 * 86400000 })
 
-    await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date(), lastActiveAt: new Date() },
+      include: { privateProfile: true },
+    })
 
-    res.json({ accessToken, user: { id: user.id, email: user.email, name: user.name, avatar: user.avatar, tier: user.tier, plan: user.plan } })
+    res.json({ accessToken, user: serializeOwnProfile(updated) })
   } catch (err) { res.status(500).json({ message: 'Server error' }) }
 })
 
@@ -241,7 +269,11 @@ app.post('/api/auth/register', async (req, res) => {
 
     res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: 86400000 })
 
-    res.status(201).json({ accessToken, user: { id: user.id, email: user.email, name: user.name } })
+    // Re-fetch with privateProfile included — the transaction's `created` is a bare
+    // user row with no relations, and the dashboard needs the full picture the
+    // moment registration succeeds, not only after a later reload.
+    const full = await prisma.user.findUnique({ where: { id: user.id }, include: { privateProfile: true } })
+    res.status(201).json({ accessToken, user: serializeOwnProfile(full) })
   } catch (err) { res.status(500).json({ message: 'Server error' }) }
 })
 
@@ -277,8 +309,22 @@ app.post('/api/auth/refresh', async (req, res) => {
 })
 
 // GET /api/auth/profile
+//
+// Returns the authenticated user's own full profile — this is "my profile," so
+// including their own PrivateProfile fields under `private` is fine (a user seeing
+// their own private data is not the leak the PrivateProfile isolation pattern guards
+// against). Any OTHER-facing route — the browse/search endpoint from Phase 5 — must
+// never do this; it may only read privateProfile fields the owner has explicitly
+// opted to show via that model's show* flags.
 app.get('/api/auth/profile', authMiddleware, async (req, res) => {
-  res.json({ id: req.user.id, email: req.user.email, name: req.user.name, avatar: req.user.avatar, tier: req.user.tier, plan: req.user.plan, profileCompletion: req.user.profileCompletion })
+  const full = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    include: { privateProfile: true },
+  })
+  if (!full) return res.status(404).json({ message: 'User not found' })
+
+  await prisma.user.update({ where: { id: full.id }, data: { lastActiveAt: new Date() } })
+  res.json(serializeOwnProfile(full))
 })
 
 // GET /api/auth/google

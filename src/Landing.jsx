@@ -146,7 +146,7 @@ function Hero({ setPage }) {
             Begin Your Journey
           </button>
           <button
-            onClick={() => setPage('login')}
+            onClick={() => setPage('premium-login')}
             className="font-mono text-[11px] uppercase tracking-[0.18em] text-vivahaa-quiet underline decoration-vivahaa-line underline-offset-[6px] transition-colors duration-500 hover:text-vivahaa-maroon"
           >
             Already a member
@@ -509,7 +509,7 @@ function Footer({ setPage }) {
               </li>
               <li>
                 <button
-                  onClick={() => setPage('login')}
+                  onClick={() => setPage('premium-login')}
                   className="text-[13px] text-vivahaa-ivory/65 transition-colors duration-300 hover:text-vivahaa-gold"
                 >
                   Sign in

@@ -131,7 +131,7 @@ export function NavBar({ page, setPage, currentUser, currentDealer, isAdmin, onL
           <>
             <Btn tier="standard" variant="ghost" onClick={() => setPage('landing')} style={{ padding: '6px 14px' }}>Home</Btn>
             <Btn tier="standard" variant="primary" onClick={() => setPage('register')} style={{ padding: '6px 14px' }}>Register</Btn>
-            <Btn tier="standard" variant="outline" onClick={() => setPage('login')} style={{ padding: '6px 14px' }}>Sign In</Btn>
+            <Btn tier="standard" variant="outline" onClick={() => setPage('premium-login')} style={{ padding: '6px 14px' }}>Sign In</Btn>
           </>
         )}
         {currentUser && (
