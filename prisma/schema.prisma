@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String?
+  name          String?
+  googleId      String?  @unique
+  avatar        String?
+  emailVerified Boolean  @default(false)
+  phone         String?
+  phoneVerified Boolean  @default(false)
+  gender        String?
+  dob           String?
+  religion      String?
+  caste         String?
+  subcaste      String?
+  /// Kongu Vellalar Gounder only. See src/data/taxonomy/konguKulams.json.
+  kulam         String?
+  /// Stable taxonomy ids behind the display strings above; matching keys on these.
+  religionId    String?
+  casteId       String?
+  subcasteId    String?
+  kulamId       String?
+  motherTongue  String?
+  familyType    String?
+  city          String?
+  education     String?
+  occupation    String?
+  income        String?
+  tier          String   @default("standard")
+  plan          String   @default("gold")
+  feeStatus     String   @default("pending")
+  approved      Boolean  @default(false)
+  nakshatra     String?
+  rashi         String?
+  birthTime     String?
+  birthPlace    String?
+  status        String   @default("active")
+  profileCompletion Int  @default(0)
+  lastLogin     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions     Session[]
+  devices      Device[]
+  otps         OTP[]
+  notifications Notification[]
+  rewards      Reward[]
+  activityLogs ActivityLog[]
+  auditLogs    AuditLog[]
+
+  privateProfile PrivateProfile?
+  siblings       Sibling[]
+  parents        Parent[]
+  documents      ProfileDocument[]
+}
+
+/// Sensitive registration data, kept OFF the User row on purpose.
+///
+/// Everything here is private by default. A public profile serializer must never
+/// spread this model — it must read individual fields and honour the matching
+/// `show*` flag, each of which defaults to false and can only be turned on by the
+/// member. Keeping these columns in a separate table means an accidental
+/// `select: *` on User cannot leak them.
+model PrivateProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  maritalStatus             String?
+  hasChildren               Boolean @default(false)
+  divorceDecreeConfirmed    Boolean @default(false)
+  widowDeclarationConfirmed Boolean @default(false)
+  spousePassedOn            String?
+  totalAssetValue           String?
+
+  // Explicit, per-field opt-in. Default closed.
+  showMaritalStatus   Boolean @default(false)
+  showChildren        Boolean @default(false)
+  showAssetValue      Boolean @default(false)
+  showParentContacts  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children Child[]
+}
+
+model Child {
+  id               String  @id @default(cuid())
+  privateProfileId String
+  age              String?
+  /// "yes" | "no" | "shared"
+  livesWithMember  String?
+
+  privateProfile PrivateProfile @relation(fields: [privateProfileId], references: [id], onDelete: Cascade)
+}
+
+model Parent {
+  id     String @id @default(cuid())
+  userId String
+  /// "father" | "mother"
+  role       String
+  name       String?
+  occupation String?
+  /// Private — gated by PrivateProfile.showParentContacts.
+  phone      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+model Sibling {
+  id            String  @id @default(cuid())
+  userId        String
+  name          String?
+  gender        String?
+  maritalStatus String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Verification documents — divorce decrees and the like. Never public, no exceptions:
+/// there is deliberately no `isPublic` flag to set. Only the member and a reviewing
+/// admin may read one, and every read should be written to AuditLog.
+model ProfileDocument {
+  id       String @id @default(cuid())
+  userId   String
+  /// "divorce_decree" | "id_proof" | "horoscope"
+  kind     String
+  fileName String
+  /// Private object-store key, not a public URL.
+  storageKey String
+  verifiedAt DateTime?
+  verifiedBy String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Admin-editable religion -> caste -> subcaste taxonomy. Supersedes the seed JSON in
+/// src/data/taxonomy/ once rows exist; see that folder's README for the sourcing rules
+/// that apply before anything is inserted here.
+model CasteTaxonomy {
+  id       String @id @default(cuid())
+  /// "religion" | "caste" | "subcaste" | "kulam"
+  level    String
+  /// Stable slug referenced by User.religionId / casteId / subcasteId / kulamId.
+  slug     String
+  label    String
+  tamil    String?
+  parentId String?
+  /// Set to "kongu" on the Kongu Vellalar Gounder caste row to enable the kulam field.
+  module   String?
+  /// False until a domain reviewer has signed the entry off.
+  verified Boolean @default(false)
+  source   String?
+  sortOrder Int    @default(0)
+  active   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   CasteTaxonomy?  @relation("TaxonomyTree", fields: [parentId], references: [id])
+  children CasteTaxonomy[] @relation("TaxonomyTree")
+
+  @@unique([level, slug, parentId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  refreshToken String?
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Device {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String?
+  type      String?
+  browser   String?
+  os        String?
+  ip        String?
+  location  String?
+  trusted   Boolean  @default(false)
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OTP {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  type      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reward {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int
+  type      String
+  description String?
+  claimed   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  plan      String
+  status    String
+  amount    Float
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  adminId   String?
+  ip        String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}

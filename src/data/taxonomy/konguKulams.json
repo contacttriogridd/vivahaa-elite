@@ -1,0 +1,1266 @@
+{
+  "meta": {
+    "subject": "Kongu Vellalar Gounder kulam / koottam (clan) list",
+    "verified": false,
+    "reviewRequired": true,
+    "reviewNote": "SEED DATA — NOT YET VERIFIED. Transcribed from the two community-maintained sources listed below, which agree on the great majority of entries. A community-knowledgeable reviewer must confirm spellings, merge duplicate variants, and add Tamil script names before launch. `attestedBy` records which source carried each entry; entries attested by only one source need the closest scrutiny.",
+    "transcribedOn": "2026-09-09",
+    "countNote": "Sources describe roughly 145 kulams in total, of which about 64 are commonly cited as the major/active subsects. The often-quoted figure of \"60 kulams\" refers to those major subsects, not the full list.",
+    "sources": [
+      {
+        "id": "kongu-vellalar-gounders-blog",
+        "url": "https://konguvellalargounders.blogspot.com/p/kongu-vellalar-kulam-kootam_5.html",
+        "kind": "community-maintained blog",
+        "entries": 145
+      },
+      {
+        "id": "kongu-pavalangatti-blog",
+        "url": "http://kongupavalangattivellalagounder.blogspot.com/2018/03/list-of-kongu-vellalar-kootams-kongu.html",
+        "kind": "community-maintained blog",
+        "entries": 151
+      }
+    ],
+    "unresolved": [
+      "Chellam vs Sellan, Cheran vs Seran vs Seralan, and Nettai Maniyan vs Maniyan may be spelling variants of the same kulam rather than distinct entries.",
+      "Tamil-script names are present for only 5 entries; the rest need to be filled in.",
+      "Neither source is an authoritative published register. Cross-check against a printed community reference before launch."
+    ]
+  },
+  "kulams": [
+    {
+      "id": "aadai",
+      "name": "Aadai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "aadhi",
+      "name": "Aadhi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "aavan",
+      "name": "Aavan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "adhirai",
+      "name": "Adhirai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "adhitreya-kumban",
+      "name": "Adhitreya Kumban",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "akini",
+      "name": "Akini",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "alagan",
+      "name": "Alagan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "anangan",
+      "name": "Anangan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "andai",
+      "name": "Andai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "tamil": "ஆந்தை",
+      "aliases": [
+        "Aandai"
+      ]
+    },
+    {
+      "id": "andhuvan",
+      "name": "Andhuvan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "ariyan",
+      "name": "Ariyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "bharatan",
+      "name": "Bharatan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "bramman",
+      "name": "Bramman",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "chellam",
+      "name": "Chellam",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "cheran",
+      "name": "Cheran",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "dananjayan",
+      "name": "Dananjayan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "danavantan",
+      "name": "Danavantan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "devendran",
+      "name": "Devendran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "dhanancheyan-ilupaikinaru",
+      "name": "Dhanancheyan (Ilupaikinaru)",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "dhanancheyan-kurukathi",
+      "name": "Dhanancheyan (Kurukathi)",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "eenjan",
+      "name": "Eenjan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "elumathur-kadais",
+      "name": "Elumathur Kadais",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "ennai",
+      "name": "Ennai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "indran",
+      "name": "Indran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kaadan",
+      "name": "Kaadan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kaari",
+      "name": "Kaari",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kaavalar",
+      "name": "Kaavalar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kadai",
+      "name": "Kadai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kadunthuvi",
+      "name": "Kadunthuvi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kalinji",
+      "name": "Kalinji",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kambakulathaan",
+      "name": "Kambakulathaan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kanakkan",
+      "name": "Kanakkan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kanavaalan",
+      "name": "Kanavaalan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kannan",
+      "name": "Kannan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "tamil": "கன்னங்குலம்"
+    },
+    {
+      "id": "kannandhai",
+      "name": "Kannandhai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "karunkannan",
+      "name": "Karunkannan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kauri",
+      "name": "Kauri",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kavalan",
+      "name": "Kavalan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "keeran",
+      "name": "Keeran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kiliyan",
+      "name": "Kiliyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kodarangi",
+      "name": "Kodarangi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "koorai",
+      "name": "Koorai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kotrandhai",
+      "name": "Kotrandhai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kottaarar",
+      "name": "Kottaarar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kovar",
+      "name": "Kovar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "koventhar",
+      "name": "Koventhar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kumarandhai",
+      "name": "Kumarandhai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kundali",
+      "name": "Kundali",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kungili",
+      "name": "Kungili",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kuniyan",
+      "name": "Kuniyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kunnukkan",
+      "name": "Kunnukkan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kuruppan",
+      "name": "Kuruppan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kuyilan",
+      "name": "Kuyilan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "kuzhlaayan",
+      "name": "Kuzhlaayan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "maadai",
+      "name": "Maadai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "maadhaman",
+      "name": "Maadhaman",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "maathuli",
+      "name": "Maathuli",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "maavalar",
+      "name": "Maavalar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "maniyan",
+      "name": "Maniyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "tamil": "மணியங்குலம்"
+    },
+    {
+      "id": "maruthurai-kadais",
+      "name": "Maruthurai Kadais",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "mayilan",
+      "name": "Mayilan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "mazhluazhlagar",
+      "name": "Mazhluazhlagar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "medhi",
+      "name": "Medhi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "meenavan",
+      "name": "Meenavan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "moimban",
+      "name": "Moimban",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "moolan",
+      "name": "Moolan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "mooriyan",
+      "name": "Mooriyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "mukkannan",
+      "name": "Mukkannan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "munaiveeran",
+      "name": "Munaiveeran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "muthan",
+      "name": "Muthan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "muzhlukkadhan",
+      "name": "Muzhlukkadhan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "naarai",
+      "name": "Naarai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "nandhan",
+      "name": "Nandhan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "neelan",
+      "name": "Neelan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "neerunni",
+      "name": "Neerunni",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "neidhali",
+      "name": "Neidhali",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "neriyan",
+      "name": "Neriyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "nettai-maniyan",
+      "name": "Nettai Maniyan",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "odhaalar",
+      "name": "Odhaalar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "ozhukkar",
+      "name": "Ozhukkar",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "paadhari",
+      "name": "Paadhari",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "paaliyan",
+      "name": "Paaliyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "paamaran",
+      "name": "Paamaran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "paamban",
+      "name": "Paamban",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "paanan",
+      "name": "Paanan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "paandian",
+      "name": "Paandian",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "aliases": [
+        "Pandian"
+      ]
+    },
+    {
+      "id": "padhuman",
+      "name": "Padhuman",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "padukkunni",
+      "name": "Padukkunni",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "paidhali",
+      "name": "Paidhali",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "panaiyan",
+      "name": "Panaiyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "panangadan",
+      "name": "Panangadan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "panjaman",
+      "name": "Panjaman",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "pannai",
+      "name": "Pannai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "pannan",
+      "name": "Pannan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "pavalan",
+      "name": "Pavalan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "payiran",
+      "name": "Payiran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "periyan",
+      "name": "Periyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "perunkudi",
+      "name": "Perunkudi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "pillan",
+      "name": "Pillan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "podiyan",
+      "name": "Podiyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "ponnan",
+      "name": "Ponnan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "poochadhai",
+      "name": "Poochadhai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "poodhiyan",
+      "name": "Poodhiyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "poosan",
+      "name": "Poosan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "porulthantha",
+      "name": "Porulthantha",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "aliases": [
+        "Mulukadhan",
+        "Muzhlukkadhan"
+      ]
+    },
+    {
+      "id": "pulathini",
+      "name": "Pulathini",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "punnai",
+      "name": "Punnai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "puthan",
+      "name": "Puthan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "saakadai",
+      "name": "Saakadai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "aliases": [
+        "Kaadai"
+      ]
+    },
+    {
+      "id": "sanagan",
+      "name": "Sanagan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sathandhai",
+      "name": "Sathandhai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sathuvaraayan",
+      "name": "Sathuvaraayan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sedan",
+      "name": "Sedan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sellan",
+      "name": "Sellan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "tamil": "செல்லங்குலம்"
+    },
+    {
+      "id": "semponn",
+      "name": "Semponn",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sempoothan",
+      "name": "Sempoothan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "semvan",
+      "name": "Semvan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "aliases": [
+        "Semban"
+      ]
+    },
+    {
+      "id": "sengannan",
+      "name": "Sengannan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sengunni",
+      "name": "Sengunni",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "seralan",
+      "name": "Seralan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "seran",
+      "name": "Seran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sevadi",
+      "name": "Sevadi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sevanthi",
+      "name": "Sevanthi",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sevvayan",
+      "name": "Sevvayan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "silamban",
+      "name": "Silamban",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "soman",
+      "name": "Soman",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "soolan",
+      "name": "Soolan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sooriyan",
+      "name": "Sooriyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sothi",
+      "name": "Sothi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "sowriyan",
+      "name": "Sowriyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "surapi",
+      "name": "Surapi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "thanakkavan",
+      "name": "Thanakkavan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "thavalayan",
+      "name": "Thavalayan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "thazhinji",
+      "name": "Thazhinji",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "themaan",
+      "name": "Themaan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "thodai",
+      "name": "Thodai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "aliases": [
+        "Thodain"
+      ]
+    },
+    {
+      "id": "thooran",
+      "name": "Thooran",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "thorakkan",
+      "name": "Thorakkan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "thunduman",
+      "name": "Thunduman",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "uvanan",
+      "name": "Uvanan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "uzhavan",
+      "name": "Uzhavan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "vaanan",
+      "name": "Vaanan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ],
+      "aliases": [
+        "Vaani"
+      ]
+    },
+    {
+      "id": "vannakkan",
+      "name": "Vannakkan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "veliyan",
+      "name": "Veliyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "vellamban",
+      "name": "Vellamban",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "vendhai",
+      "name": "Vendhai",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "vendoven",
+      "name": "Vendoven",
+      "attestedBy": [
+        "kongu-pavalangatti-blog"
+      ],
+      "tamil": "வெண்டுவங்குலம்"
+    },
+    {
+      "id": "viliyan",
+      "name": "Viliyan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "villi",
+      "name": "Villi",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "vilosanan",
+      "name": "Vilosanan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "viradhan",
+      "name": "Viradhan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    },
+    {
+      "id": "viraivulan",
+      "name": "Viraivulan",
+      "attestedBy": [
+        "kongu-vellalar-gounders-blog",
+        "kongu-pavalangatti-blog"
+      ]
+    }
+  ]
+}
