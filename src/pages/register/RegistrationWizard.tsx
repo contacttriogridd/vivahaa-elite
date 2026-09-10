@@ -215,12 +215,15 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
 
         foodPreference: data.foodPreference,
         hobbies: data.hobbies,
-        interests: data.interests,
-        languages: data.languages,
-        partnerAge: data.partnerAge,
+        // Server column is `lifestyleInterests` — "interests" is reserved for the
+        // Like/Match system now, see prisma/schema.prisma.
+        lifestyleInterests: data.interests,
+        languagesKnown: data.languages,
+        partnerAgeRange: data.partnerAge,
         partnerReligion: data.partnerReligion,
         partnerLocation: data.partnerLocation,
         languagePreference: data.languagePreference,
+        noHoroscopeChart: data.noHoroscopeChart,
         profileCompletion: Math.min(100, completion),
 
         /**

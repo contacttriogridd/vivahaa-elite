@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// The real source of truth for a member's paid tier. `User.tier` ("standard"|"elite")
+/// stays alongside it for every legacy .jsx component that already reads that string —
+/// it is always derived from `plan` server-side (see isElitePlan in server/index.js),
+/// never set independently, so the two can't drift.
+enum PlanTier {
+  SILVER
+  GOLD
+  DIAMOND
+  PLATINUM
+  PLATINUM_PLUS
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -32,20 +44,62 @@ model User {
   motherTongue  String?
   familyType    String?
   city          String?
+  /// Resolved at registration from a static lookup for the platform's known service
+  /// cities (see src/data/taxonomy/cityGeo.json) — no geocoding API. Null for any
+  /// other city; such profiles are excluded from radius search but still match on
+  /// the plain-text location filter.
+  latitude      Float?
+  longitude     Float?
   education     String?
   occupation    String?
   income        String?
   tier          String   @default("standard")
-  plan          String   @default("gold")
+  plan          PlanTier @default(GOLD)
   feeStatus     String   @default("pending")
   approved      Boolean  @default(false)
+
+  // Physical / lifestyle — previously collected by the registration wizard and
+  // silently dropped by this route; now actually persisted.
+  height           String?
+  weight           String?
+  bloodGroup       String?
+  foodPreference   String?
+  hobbies          String?
+  /// Free-text "interests" from the wizard's lifestyle step. Deliberately NOT named
+  /// "interests" — that word now belongs to the Like/Match system below, and reusing
+  /// it here would collide.
+  lifestyleInterests String?
+  languagesKnown   String?
+  languagePreference String?
+
+  // Partner search criteria collected at registration. Flat strings for now,
+  // matching the existing precedent (religion/caste/etc.) rather than a new table —
+  // revisit only if these need independent privacy controls later.
+  partnerAgeRange  String?
+  partnerReligion  String?
+  partnerLocation  String?
+
   nakshatra     String?
   rashi         String?
   birthTime     String?
   birthPlace    String?
+  noHoroscopeChart Boolean @default(false)
+
+  // Trust & safety
+  idVerified     Boolean @default(false)
+  photoVerified  Boolean @default(false)
+  /// Elite-tier "video call verification" badge.
+  videoVerified  Boolean @default(false)
+  /// "public" | "connections" | "blurred" — who can see this member's photo at full
+  /// resolution. Enforced server-side wherever a profile photo URL is served, not
+  /// just a client-side CSS blur.
+  photoVisibility String @default("public")
+
   status        String   @default("active")
   profileCompletion Int  @default(0)
   lastLogin     DateTime?
+  /// Touched on login and on GET /api/auth/profile — backs the "recently active" sort.
+  lastActiveAt  DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -61,6 +115,72 @@ model User {
   siblings       Sibling[]
   parents        Parent[]
   documents      ProfileDocument[]
+
+  likesSent     Like[]        @relation("LikesSent")
+  likesReceived Like[]        @relation("LikesReceived")
+  matchesAsA    Match[]       @relation("MatchUserA")
+  matchesAsB    Match[]       @relation("MatchUserB")
+  messagesSent  Message[]
+  profileViewsMade     ProfileView[] @relation("Viewer")
+  profileViewsReceived ProfileView[] @relation("Viewed")
+}
+
+/// One-directional "like." A row in both directions between the same pair is what
+/// creates a Match (see server/index.js's like route, which does both writes in one
+/// transaction).
+model Like {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  createdAt  DateTime @default(now())
+
+  fromUser User @relation("LikesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("LikesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+}
+
+/// Created once both directions of a Like exist. userAId/userBId are always stored
+/// with the lexicographically-smaller id first so the unique constraint doesn't need
+/// to worry about direction.
+model Match {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  matchedAt DateTime @default(now())
+
+  userA    User      @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User      @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([userAId, userBId])
+}
+
+/// Scoped to a Match — there is no messaging between two users who are not mutually
+/// matched. See the Like/Match models above.
+model Message {
+  id        String    @id @default(cuid())
+  matchId   String
+  senderId  String
+  body      String
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  match  Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+/// "Who viewed my profile" — an Elite-tier perk. Gate reading this to Elite users at
+/// the route level; every profile view still gets logged regardless of the viewer's
+/// tier, so upgrading to Elite reveals history that already exists.
+model ProfileView {
+  id           String   @id @default(cuid())
+  viewerId     String
+  viewedUserId String
+  createdAt    DateTime @default(now())
+
+  viewer     User @relation("Viewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  viewedUser User @relation("Viewed", fields: [viewedUserId], references: [id], onDelete: Cascade)
 }
 
 /// Sensitive registration data, kept OFF the User row on purpose.

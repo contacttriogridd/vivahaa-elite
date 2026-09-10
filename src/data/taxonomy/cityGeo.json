@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "subject": "Lat/lng lookup for the platform's known service cities, used for radius search",
+    "verified": true,
+    "note": "City-centroid coordinates only (not street-level), sourced from public geographic reference data. Sufficient for a city-radius filter; not precise enough for anything finer. A city not listed here gets no lat/lng at registration and is excluded from radius search but still matches on the plain-text location filter. Add a geocoding API before expanding this list much further.",
+    "scope": "Matches the platform's existing CITIES list in src/data.js"
+  },
+  "cities": {
+    "Coimbatore": { "lat": 11.0168, "lng": 76.9558 },
+    "Tirupur": { "lat": 11.1085, "lng": 77.3411 },
+    "Erode": { "lat": 11.3410, "lng": 77.7172 },
+    "Namakkal": { "lat": 11.2189, "lng": 78.1677 },
+    "Salem": { "lat": 11.6643, "lng": 78.1460 },
+    "Dindigul": { "lat": 10.3624, "lng": 77.9695 }
+  }
+}

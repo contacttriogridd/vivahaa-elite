@@ -9,8 +9,16 @@ import { PrismaClient } from '@prisma/client'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { readFileSync } from 'fs'
 
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+// City-centroid lookup for the platform's known service cities — see the file's own
+// `meta` block for why this exists instead of a geocoding API call.
+const CITY_GEO = JSON.parse(
+  readFileSync(join(__dirname, '..', 'src', 'data', 'taxonomy', 'cityGeo.json'), 'utf-8')
+).cities
 
 const app = express()
 const prisma = new PrismaClient()
@@ -96,6 +104,12 @@ app.post('/api/auth/register', async (req, res) => {
       religion, caste, subcaste, kulam, community = {},
       motherTongue, occupation, income, location, qualification,
       family = {}, horoscope = {},
+      // Previously collected by the wizard and silently dropped by this route —
+      // see prisma/schema.prisma's User model for why each of these exists now.
+      height, weight, bloodGroup,
+      foodPreference, hobbies, lifestyleInterests, languagesKnown, languagePreference,
+      partnerAgeRange, partnerReligion, partnerLocation,
+      noHoroscopeChart,
       profileCompletion,
       // Sensitive block. Deliberately destructured out so it can never be spread
       // onto the User row alongside the public fields.
@@ -107,6 +121,7 @@ app.post('/api/auth/register', async (req, res) => {
     if (exists) return res.status(409).json({ message: 'Email already registered' })
 
     const hashed = await bcrypt.hash(password, 12)
+    const geo = location && CITY_GEO[location] ? CITY_GEO[location] : null
 
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -131,10 +146,24 @@ app.post('/api/auth/register', async (req, res) => {
           occupation,
           income,
           city: location,
+          latitude: geo?.lat ?? null,
+          longitude: geo?.lng ?? null,
+          height,
+          weight,
+          bloodGroup,
+          foodPreference,
+          hobbies,
+          lifestyleInterests,
+          languagesKnown,
+          languagePreference,
+          partnerAgeRange,
+          partnerReligion,
+          partnerLocation,
           birthTime: horoscope.birthTime,
           birthPlace: horoscope.birthPlace,
           nakshatra: horoscope.nakshatra,
           rashi: horoscope.rasi,
+          noHoroscopeChart: Boolean(noHoroscopeChart),
           profileCompletion: Number.isFinite(profileCompletion) ? profileCompletion : 10,
         },
       })
@@ -185,6 +214,22 @@ app.post('/api/auth/register', async (req, res) => {
             gender: sibling.gender || null,
             maritalStatus: sibling.maritalStatus || null,
           })),
+        })
+      }
+
+      // The wizard only ever sends the *name* of an attached document today (no
+      // actual file upload wiring exists yet) — record it as a real, private
+      // ProfileDocument row rather than a loose string, so admin review has
+      // somewhere real to look. `storageKey` is a placeholder until file upload
+      // is built; nothing here is ever served to another member.
+      if (sensitive.divorceDocumentName) {
+        await tx.profileDocument.create({
+          data: {
+            userId: created.id,
+            kind: 'divorce_decree',
+            fileName: sensitive.divorceDocumentName,
+            storageKey: `pending-upload/${created.id}/${sensitive.divorceDocumentName}`,
+          },
         })
       }
 
