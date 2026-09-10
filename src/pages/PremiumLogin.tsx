@@ -18,6 +18,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { GlassCard } from '../components/ui/card'
+import { ParticleField } from '../components/ui/ParticleField'
 import API from '../lib/api'
 import i18n from '../lib/i18n'
 
@@ -221,18 +222,6 @@ export default function PremiumLogin() {
     } finally { setIsResetLoading(false) }
   }
 
-  const particleAnimation = {
-    y: [0, -30, 0],
-    opacity: [0.2, 0.8, 0.2],
-  }
-
-  const petalAnimation = {
-    y: [0, -120],
-    x: [0, 60, -60, 0],
-    opacity: [0, 0.6, 0],
-    rotate: [0, 360],
-  }
-
   if (loginSuccess) {
     return (
       <div className="relative min-h-screen bg-elite-bg overflow-hidden">
@@ -317,28 +306,7 @@ export default function PremiumLogin() {
       </AnimatePresence>
 
       {/* Floating Particles */}
-      <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
-        {[...Array(25)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-royal-gold/30 rounded-full"
-            style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%` }}
-            animate={particleAnimation}
-            transition={{ duration: 3 + Math.random() * 4, repeat: Infinity, delay: Math.random() * 2 }}
-          />
-        ))}
-        {[...Array(8)].map((_, i) => (
-          <motion.div
-            key={`p${i}`}
-            className="absolute text-2xl select-none"
-            style={{ left: `${Math.random() * 100}%`, top: '100%' }}
-            animate={petalAnimation}
-            transition={{ duration: 8 + Math.random() * 6, repeat: Infinity, delay: i * 1.5 }}
-          >
-            {['🌸', '✨', '🌺', '💫', '🪷'][i % 5]}
-          </motion.div>
-        ))}
-      </div>
+      <ParticleField particleCount={25} petalCount={8} className="z-20" />
 
       {/* Top Bar */}
       <div className="relative z-30 flex items-center justify-between px-4 sm:px-6 py-4">
