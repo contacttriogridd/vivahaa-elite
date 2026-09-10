@@ -407,6 +407,193 @@ app.post('/api/auth/demo-login', async (req, res) => {
   return res.json({ user: { id: 'user-demo', email: process.env.DEMO_USER_EMAIL, name: 'Demo User', role: 'user' }, accessToken: 'demo-user-token' })
 })
 
+// ── Browse / Search ──────────────────────────────────────────────────────────
+
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+/**
+ * dob is stored as a plain "YYYY-MM-DD" string (see prisma/schema.prisma), not a
+ * DateTime — but that format sorts and range-compares lexicographically exactly
+ * like a real date would, so Prisma's ordinary string gte/lte/asc/desc all just
+ * work without a schema change or a raw query.
+ */
+const dobBoundForAge = (age) => {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - Number(age))
+  return d.toISOString().slice(0, 10)
+}
+
+const ageFromDob = (dob) => {
+  if (!dob) return null
+  const birth = new Date(dob)
+  if (Number.isNaN(birth.getTime())) return null
+  const diffMs = Date.now() - birth.getTime()
+  return Math.floor(diffMs / (365.25 * 24 * 3600 * 1000))
+}
+
+const resolveSort = (sort) => {
+  switch (sort) {
+    case 'active':
+      return { lastActiveAt: 'desc' }
+    // "Ascending" means youngest first, which is the LARGER (more recent) dob
+    // string — see the note on dobBoundForAge above.
+    case 'age-asc':
+      return { dob: 'desc' }
+    case 'age-desc':
+      return { dob: 'asc' }
+    case 'match-score':
+      // Not available until Phase 8's horoscope scorer exists. Falls back to
+      // newest rather than erroring, so the client doesn't need to know yet
+      // whether this sort option is live.
+      return { createdAt: 'desc' }
+    case 'newest':
+    default:
+      return { createdAt: 'desc' }
+  }
+}
+
+/**
+ * Privacy-respecting projection for someone ELSE's profile in a results list — the
+ * opposite of GET /api/auth/profile, which returns a user's own full data. This must
+ * never spread PrivateProfile wholesale; a field from it appears here only when its
+ * matching show* flag is true, exactly like the wizard's privacy model intends.
+ * `photoVisibility: 'blurred'` is enforced by omitting the avatar outright for now —
+ * a real blur-vs-full distinction based on connection state is Phase 10's job.
+ */
+const serializeProfileCard = (u, distanceKm) => ({
+  id: u.id,
+  name: u.name,
+  avatar: u.photoVisibility === 'blurred' ? null : u.avatar,
+  gender: u.gender,
+  age: ageFromDob(u.dob),
+  religion: u.religion,
+  caste: u.caste,
+  subcaste: u.subcaste,
+  motherTongue: u.motherTongue,
+  city: u.city,
+  education: u.education,
+  occupation: u.occupation,
+  height: u.height,
+  foodPreference: u.foodPreference,
+  nakshatra: u.nakshatra,
+  rashi: u.rashi,
+  idVerified: u.idVerified,
+  photoVerified: u.photoVerified,
+  videoVerified: u.videoVerified,
+  profileCompletion: u.profileCompletion,
+  maritalStatus: u.privateProfile?.showMaritalStatus ? u.privateProfile.maritalStatus : undefined,
+  ...(distanceKm != null ? { distanceKm: Math.round(distanceKm * 10) / 10 } : {}),
+})
+
+// GET /api/profiles
+//
+// Paginated browse/search. Two branches:
+//   - Plain filters: an ordinary Prisma query with cursor pagination.
+//   - Radius search (radiusKm + centerLat + centerLng given): distance can't be
+//     expressed as a Prisma where-clause, so this fetches a bounded candidate set
+//     (already narrowed by every other filter, and to only rows with coordinates —
+//     see the Phase 1 note on cityGeo.json for why not every profile has any) and
+//     computes Haversine distance in JS, sorted nearest-first. No cursor pagination
+//     on this branch — fine at the platform's current city-list-bounded scale;
+//     revisit if/when a real geocoder replaces the static lookup.
+app.get('/api/profiles', authMiddleware, async (req, res) => {
+  try {
+    const {
+      gender, religionId, casteId, subcasteId, motherTongue, maritalStatus,
+      location, radiusKm, centerLat, centerLng,
+      education, occupation, foodPreference, nakshatra, rashi,
+      ageMin, ageMax, hasPhoto, verifiedOnly,
+      sort = 'newest', cursor, limit,
+    } = req.query
+
+    const take = Math.min(parseInt(limit, 10) || 20, 50)
+
+    const where = {
+      id: { not: req.user.id },
+      status: 'active',
+      approved: true,
+    }
+    if (gender) where.gender = gender
+    if (religionId) where.religionId = religionId
+    if (casteId) where.casteId = casteId
+    if (subcasteId) where.subcasteId = subcasteId
+    if (motherTongue) where.motherTongue = { equals: motherTongue, mode: 'insensitive' }
+    if (location) where.city = { contains: location, mode: 'insensitive' }
+    if (education) where.education = { contains: education, mode: 'insensitive' }
+    if (occupation) where.occupation = { contains: occupation, mode: 'insensitive' }
+    if (foodPreference) where.foodPreference = foodPreference
+    if (nakshatra) where.nakshatra = nakshatra
+    if (rashi) where.rashi = rashi
+    if (hasPhoto === 'true') where.avatar = { not: null }
+    if (verifiedOnly === 'true') where.idVerified = true
+
+    if (ageMin || ageMax) {
+      where.dob = {}
+      if (ageMax) where.dob.gte = dobBoundForAge(Number(ageMax) + 1)
+      if (ageMin) where.dob.lte = dobBoundForAge(Number(ageMin))
+    }
+
+    // Marital status is private by default (see PrivateProfile in the schema) — only
+    // match profiles whose owner has opted to show it, rather than letting a search
+    // filter reach past that opt-in.
+    if (maritalStatus) {
+      where.privateProfile = { is: { maritalStatus, showMaritalStatus: true } }
+    }
+
+    if (radiusKm && centerLat && centerLng) {
+      const lat = Number(centerLat)
+      const lng = Number(centerLng)
+      const radius = Number(radiusKm)
+
+      const candidates = await prisma.user.findMany({
+        where: { ...where, latitude: { not: null }, longitude: { not: null } },
+        include: { privateProfile: true },
+        take: 500,
+      })
+
+      const withDistance = candidates
+        .map((u) => ({ u, d: haversineKm(lat, lng, u.latitude, u.longitude) }))
+        .filter(({ d }) => d <= radius)
+        .sort((a, b) => a.d - b.d)
+        .slice(0, take)
+
+      return res.json({
+        profiles: withDistance.map(({ u, d }) => serializeProfileCard(u, d)),
+        nextCursor: null,
+      })
+    }
+
+    const orderBy = resolveSort(sort)
+    const results = await prisma.user.findMany({
+      where,
+      orderBy,
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: { privateProfile: true },
+    })
+
+    const hasMore = results.length > take
+    const page = hasMore ? results.slice(0, take) : results
+
+    res.json({
+      profiles: page.map((u) => serializeProfileCard(u)),
+      nextCursor: hasMore ? page[page.length - 1].id : null,
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 // ── Taxonomy ─────────────────────────────────────────────────────────────────
 
 // GET /api/taxonomy
