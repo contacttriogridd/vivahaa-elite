@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:frontend": "vite",
     "dev:backend": "node server/index.js",
-    "build": "tsc --noEmit --skipLibCheck && vite build",
+    "build": "node node_modules/typescript/bin/tsc --noEmit --skipLibCheck && node node_modules/vite/bin/vite.js build",
     "preview": "vite preview",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
