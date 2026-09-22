@@ -10,6 +10,8 @@ import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { readFileSync } from 'fs'
+import { createAdminRouter } from './routes/admin.js'
+import { createVendorRouter } from './routes/vendor.js'
 
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 
@@ -662,6 +664,12 @@ app.post('/api/horoscope/summarise', authMiddleware, async (req, res) => {
     message: 'Chart summaries are not enabled yet.',
   })
 })
+
+// Admin panel (employee auth + RBAC-gated sections) and vendor self-service portal —
+// see server/lib/rbac.js for why these use their own JWT cookies/middleware
+// distinct from the member authMiddleware above.
+app.use('/api/admin', limiter, createAdminRouter(prisma))
+app.use('/api/vendor', limiter, createVendorRouter(prisma))
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
