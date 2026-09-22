@@ -38,9 +38,12 @@ export const PLANS = {
 }
 
 export const CITIES = ['Coimbatore','Tirupur','Erode','Namakkal','Salem','Dindigul']
-export const VENDOR_CATS = ['Invitation','Venue','Catering','Photography','Decor','Makeup','Honeymoon',
-  'Iyer/Purohit','Nadhaswaram-Vaathiyam','Hotel','Travel','Wedding Planner','DJ','Car Rental','Florist']
-export const SHARED_CATS = ['Iyer/Purohit','Nadhaswaram-Vaathiyam']
+// Re-exported from src/data/vendorCategories.js (see that file for why it's split
+// out) so every existing `import { VENDOR_CATS } from './data.js'` / `'../data.js'`
+// call site keeps working unchanged. Imported (not `export ... from`) since this
+// file's own genVendors() below also uses VENDOR_CATS directly.
+import { VENDOR_CATS, SHARED_CATS } from './data/vendorCategories.js'
+export { VENDOR_CATS, SHARED_CATS }
 export const NAKSHATRAS = ['Ashwini','Bharani','Krittika','Rohini','Mrigashira','Ardra','Punarvasu',
   'Pushya','Ashlesha','Magha','Purva Phalguni','Uttara Phalguni','Hasta','Chitra','Swati','Vishakha',
   'Anuradha','Jyeshtha','Mula','Purva Ashadha','Uttara Ashadha','Shravana','Dhanishta','Shatabhisha',

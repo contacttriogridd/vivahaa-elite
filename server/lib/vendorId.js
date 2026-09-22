@@ -6,7 +6,11 @@
 // assigned in two steps inside one transaction (see createVendorWithId below):
 // insert to obtain sequenceNo, then update vendorId onto that same row. No other
 // query can observe the intermediate placeholder.
-import { VENDOR_CATS } from '../../src/data.js'
+// Imported from the minimal categories file, not src/data.js — that file also
+// pulls in src/lib/plans.ts (TypeScript, no build step), which crashes Vercel's
+// serverless bundler at runtime (ERR_MODULE_NOT_FOUND). See
+// src/data/vendorCategories.js's own comment for the full story.
+import { VENDOR_CATS } from '../../src/data/vendorCategories.js'
 
 // One clear, unique 2-letter code per category. Add a line here (and only here)
 // when a new service category is introduced — SERVICE_CODES is validated against
