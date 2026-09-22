@@ -34,6 +34,41 @@ export function createAdminRouter(prisma) {
   const router = express.Router()
   const requireEmployee = authenticateEmployee(prisma)
 
+  // TEMPORARY — one-time trigger to run prisma/seed.js's seedCore against the
+  // production database, since there's no way to reach it interactively from
+  // this environment (Vercel's managed Postgres integration doesn't expose its
+  // connection string through the API, and a detached sandbox doesn't inherit
+  // the project's env vars). No auth prerequisite exists yet on a fresh
+  // database (same chicken-and-egg reasoning as prisma/seed.js's own HR_ADMIN
+  // bootstrap), so this is gated by a shared secret instead of employee auth.
+  // Remove this route (and the SEED_TRIGGER_SECRET env var) once production is
+  // confirmed seeded — see the commit that removes it.
+  router.post('/_seed-production', async (req, res) => {
+    const expected = process.env.SEED_TRIGGER_SECRET
+    if (!expected || req.headers['x-seed-secret'] !== expected) {
+      return res.status(404).json({ message: 'Not found' })
+    }
+    try {
+      const { seedCore } = await import('../../prisma/seed.js')
+      const before = {
+        users: await prisma.user.count(),
+        employees: await prisma.employee.count(),
+        vendors: await prisma.vendor.count(),
+        dealers: await prisma.dealer.count(),
+      }
+      await seedCore(prisma)
+      const after = {
+        users: await prisma.user.count(),
+        employees: await prisma.employee.count(),
+        vendors: await prisma.vendor.count(),
+        dealers: await prisma.dealer.count(),
+      }
+      res.json({ message: 'Seed complete', before, after })
+    } catch (err) {
+      res.status(500).json({ message: err.message, stack: err.stack })
+    }
+  })
+
   // POST /api/admin/login
   router.post('/login', async (req, res) => {
     try {

@@ -1,12 +1,15 @@
 import { PrismaClient } from '@prisma/client'
+import { fileURLToPath } from 'url'
 import bcrypt from 'bcryptjs'
 import { createEmployeeWithId } from '../server/lib/employeeId.js'
 import { createVendorWithId } from '../server/lib/vendorId.js'
 import { seedAdminDemo } from './seedAdminDemo.js'
 
-const prisma = new PrismaClient()
-
-async function main() {
+// The actual seeding logic, factored out so it can run against any PrismaClient
+// instance — the CLI entrypoint below (npm run db:seed) creates its own, and
+// server/routes/admin.js's temporary production-seed trigger reuses the one
+// already created in server/index.js instead of opening a second connection.
+export async function seedCore(prisma) {
   const adminPwd = await bcrypt.hash('Admin@123', 12)
   const userPwd = await bcrypt.hash('Demo@123', 12)
 
@@ -65,4 +68,9 @@ async function main() {
   await seedAdminDemo(prisma)
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect())
+// CLI entrypoint (npm run db:seed) — owns its own PrismaClient and disconnects
+// when done, same as before this file was refactored to export seedCore.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const prisma = new PrismaClient()
+  seedCore(prisma).catch(console.error).finally(() => prisma.$disconnect())
+}

@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/[...path].js": {
+      "includeFiles": "src/data/taxonomy/cityGeo.json"
+    }
+  }
+}
