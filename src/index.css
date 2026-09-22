@@ -23,4 +23,17 @@
   .premium-shadow { box-shadow: 0 4px 24px rgba(212, 175, 55, 0.15); }
   .input-premium { border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 0.75rem; transition: all 0.3s ease; }
   .input-premium:focus { border-color: #D4AF37; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15); outline: none; }
+
+  /* Admin panel's component library (src/admin/ui.jsx) sets outline:none on inputs
+     and relies on framer-motion hover/tap for buttons, leaving no visible keyboard
+     focus indicator anywhere — this restores one, scoped to .admin-root so it never
+     touches the member-facing site's own focus styling. Uses ADMIN.focus's hex
+     directly since CSS here can't read the JS token object. */
+  .admin-root button:focus-visible,
+  .admin-root input:focus-visible,
+  .admin-root select:focus-visible,
+  .admin-root [tabindex]:focus-visible {
+    outline: 2px solid #E8C878;
+    outline-offset: 2px;
+  }
 }

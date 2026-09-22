@@ -7,13 +7,21 @@ export const ELITE = {
   bg: '#0B0A09', panel: '#17130F', primary: '#5C1A27',
   gold: '#D9B24C', text: '#F3E9D2', border: '#3A311F', muted: '#8A7A5A',
 }
+// Refined from the original mock palette: same dark gold/maroon Elite identity, but
+// `muted`/`subtle` were re-picked to actually clear WCAG AA (4.5:1) against every
+// dark surface they're layered on (card/panel/sidebar/bg) — the originals sat at
+// ~3.5:1 and ~1.6:1 respectively, both AA failures for the small IBM Plex Mono
+// labels they're used on throughout src/admin. `focus` backs the keyboard
+// focus-visible ring added in src/index.css's .admin-root rule (interactive states
+// previously had no visible focus indicator at all).
 export const ADMIN = {
   bg: '#080810', sidebar: '#0D0D1A', panel: '#12121F',
   card: '#16162A', border: '#1E1E35', borderGlow: '#2A2A50',
   gold: '#D9B24C', goldGlow: '#D9B24C33',
   primary: '#7A2436', primaryGlow: '#7A243633',
-  text: '#F0EEF8', muted: '#6B6B8A', subtle: '#3A3A5C',
-  green: '#22C55E', red: '#EF4444', blue: '#3B82F6', purple: '#A855F7',
+  text: '#F0EEF8', muted: '#9494B8', subtle: '#8484AC',
+  focus: '#E8C878',
+  green: '#22C55E', red: '#EF4444', blue: '#4C93FF', purple: '#A855F7',
   orange: '#F97316', cyan: '#06B6D4',
   gradient: 'linear-gradient(135deg, #D9B24C 0%, #F5D98B 50%, #D9B24C 100%)',
   gradientCard: 'linear-gradient(135deg, #16162A 0%, #1E1E35 100%)',
