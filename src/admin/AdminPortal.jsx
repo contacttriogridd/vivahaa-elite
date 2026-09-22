@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ADMIN } from '../data.js'
 import Sidebar from './Sidebar.jsx'
@@ -12,14 +12,25 @@ import Horoscope from './Horoscope.jsx'
 import Reports from './Reports.jsx'
 import AuditLog from './AuditLog.jsx'
 import Settings from './Settings.jsx'
+import Payments from './Payments.jsx'
+import Engagement from './Engagement.jsx'
+import PostMatch from './PostMatch.jsx'
+import EnquiriesFunnel from './EnquiriesFunnel.jsx'
+import Employees from './Employees.jsx'
+import { canAccessSection, ROLE_LABELS } from './rbac.js'
 
 const A = ADMIN
 
 const PAGE_MAP = {
   overview:  Overview,
   users:     Users,
+  engagement: Engagement,
+  'post-match': PostMatch,
+  payments:  Payments,
+  enquiries: EnquiriesFunnel,
   dealers:   Dealers,
   vendors:   Vendors,
+  employees: Employees,
   packages:  Packages,
   gifts:     Gifts,
   horoscope: Horoscope,
@@ -28,31 +39,64 @@ const PAGE_MAP = {
   settings:  Settings,
 }
 
-export default function AdminPortal({ onLogout, refresh }) {
+// Below this width the sidebar auto-collapses to its icon-only rail so the
+// content area keeps enough room to be usable (measured live: a 240px fixed
+// sidebar left only 135px of content on a 375px phone, before the deeper
+// flexbox min-width issue below was even in play).
+const MOBILE_BREAKPOINT = 768
+
+export default function AdminPortal({ employee, onLogout, refresh }) {
   const [active, setActive] = useState('overview')
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT)
   const [, forceUpdate] = useState(0)
   const re = () => { forceUpdate(n => n + 1); refresh?.() }
 
-  const PageComponent = PAGE_MAP[active] || Overview
+  useEffect(() => {
+    const onResize = () => setCollapsed(window.innerWidth < MOBILE_BREAKPOINT)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const role = employee?.role
+  // Defense in depth: the nav already hides inaccessible sections (see Sidebar.jsx),
+  // but this guards direct `active` state changes too, and every underlying
+  // /api/admin/* call is independently role-checked server-side regardless of what
+  // this component renders — see server/lib/rbac.js.
+  const PageComponent = (role && !canAccessSection(role, active)) ? Overview : (PAGE_MAP[active] || Overview)
   const sidebarWidth = collapsed ? 68 : 240
 
+  // On mobile, a manually-expanded sidebar (via the rail toggle) covers most of
+  // the 240px-wide content area — auto-collapse it back after picking a section,
+  // the same way a hamburger menu closes after a tap, instead of leaving it open
+  // over the page.
+  const handleNavChange = (id) => {
+    setActive(id)
+    if (typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT) setCollapsed(true)
+  }
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: A.bg, color: A.text }}>
+    <div className="admin-root" style={{ display: 'flex', minHeight: '100vh', background: A.bg, color: A.text }}>
       {/* Sidebar */}
       <Sidebar
         active={active}
-        onChange={setActive}
+        onChange={handleNavChange}
         onLogout={onLogout}
         collapsed={collapsed}
         setCollapsed={setCollapsed}
+        role={role}
       />
 
       {/* Main content */}
       <motion.main
         animate={{ marginLeft: sidebarWidth }}
         transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-        style={{ flex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
+        // minWidth: 0 overrides the flex item's default min-width:auto, which
+        // otherwise sizes to its content's min-content width (e.g. a wide
+        // table) and pushes the whole page wider than the viewport — a classic
+        // flexbox trap. Confirmed via browser measurement: without it, every
+        // section (including pre-existing ones like Overview) overflowed
+        // horizontally at mobile widths, sometimes by 3-4x the viewport.
+        style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
       >
         {/* Top bar */}
         <div style={{
@@ -80,8 +124,8 @@ export default function AdminPortal({ onLogout, refresh }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
             }}>👤</div>
             <div>
-              <p style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: A.text, lineHeight: 1.2 }}>Super Admin</p>
-              <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: A.muted, letterSpacing: '0.08em' }}>VIVAHAA ELITE</p>
+              <p style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: A.text, lineHeight: 1.2 }}>{employee?.name || 'Employee'}</p>
+              <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: A.muted, letterSpacing: '0.08em' }}>{employee?.employeeCode || ''} · {ROLE_LABELS[role] || role || ''}</p>
             </div>
           </div>
         </div>

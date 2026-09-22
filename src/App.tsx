@@ -9,13 +9,42 @@ import Dealer from './Dealer'
 import Dashboard from './pages/Dashboard.tsx'
 import PremiumLogin from './pages/PremiumLogin.tsx'
 import { useAuth } from './contexts/AuthContext'
+import { adminApi, vendorApi } from './admin/apiClient.js'
+import VendorLogin from './vendor/VendorLogin.jsx'
+import VendorPortal from './vendor/VendorPortal.jsx'
 
 export default function App() {
   const [page, setPage] = useState('landing')
   const [currentDealer, setCurrentDealer] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  // Real signed-in employee (RBAC role, employeeCode, etc.), sourced from
+  // /api/admin/me — not the mock data.js state, same principle as `user` below.
+  const [employee, setEmployee] = useState<any>(null)
+  // Real signed-in vendor (own bookings/ratings only), sourced from /api/vendor/me —
+  // same pattern as `employee` above, deliberately separate state and token.
+  const [vendor, setVendor] = useState<any>(null)
   const [, forceUpdate] = useState(0)
   const refresh = () => forceUpdate((n: number) => n + 1)
+
+  // Restores an employee session across a page refresh — without this, reloading
+  // while on the admin panel would silently drop back to the login screen even
+  // though the JWT (8h expiry) is still valid.
+  useEffect(() => {
+    const token = localStorage.getItem('employeeAccessToken')
+    if (!token) return
+    adminApi.get('/admin/me')
+      .then(({ data }) => { setEmployee(data.employee); setIsAdmin(true) })
+      .catch(() => localStorage.removeItem('employeeAccessToken'))
+  }, [])
+
+  // Same restore-on-refresh behavior for a signed-in vendor.
+  useEffect(() => {
+    const token = localStorage.getItem('vendorAccessToken')
+    if (!token) return
+    vendorApi.get('/vendor/me')
+      .then(({ data }) => setVendor(data.vendor))
+      .catch(() => localStorage.removeItem('vendorAccessToken'))
+  }, [])
 
   // Real signed-in user, sourced from the actual database via AuthContext — not the
   // mock data.js state. This is what "live auth end-to-end" (Phase 3) means: the
@@ -35,16 +64,26 @@ export default function App() {
   }, [user, page])
 
   const dealerLogin = (dealer: any) => { state.currentDealer = dealer; setCurrentDealer(dealer) }
-  const adminLogin = () => { state.isAdmin = true; setIsAdmin(true) }
+  const adminLogin = (emp: any) => { state.isAdmin = true; setEmployee(emp); setIsAdmin(true) }
   const logout = async () => {
     // Awaited so `user` is already cleared before we navigate — see the note above.
     await authLogout()
     state.currentDealer = null; state.isAdmin = false
     setCurrentDealer(null); setIsAdmin(false); setPage('landing')
   }
+  const adminLogout = async () => {
+    try { await adminApi.post('/admin/logout') } catch { /* token may already be expired */ }
+    localStorage.removeItem('employeeAccessToken')
+    state.isAdmin = false
+    setEmployee(null); setIsAdmin(false); setPage('landing')
+  }
 
   if (isAdmin) {
-    return <AdminPortal onLogout={logout} refresh={refresh} />
+    return <AdminPortal employee={employee} onLogout={adminLogout} refresh={refresh} />
+  }
+
+  if (vendor) {
+    return <VendorPortal vendor={vendor} onLogout={() => { setVendor(null); setPage('landing') }} />
   }
 
   const renderPage = () => {
@@ -54,6 +93,7 @@ export default function App() {
       case 'premium-login': return <PremiumLogin />
       case 'admin-login':  return <AdminLogin setPage={setPage} onAdminLogin={adminLogin} />
       case 'dealer-login': return <DealerLogin setPage={setPage} onDealerLogin={dealerLogin} />
+      case 'vendor-login': return <VendorLogin onVendorLogin={setVendor} />
       case 'dealer':       return currentDealer ? <Dealer dealer={currentDealer} refresh={refresh} /> : <DealerLogin setPage={setPage} onDealerLogin={dealerLogin} />
       case 'dashboard':    return user ? <Dashboard /> : <PremiumLogin />
       default:             return <Landing setPage={setPage} />
