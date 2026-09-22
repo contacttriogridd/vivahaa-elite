@@ -10,6 +10,8 @@ import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { readFileSync } from 'fs'
+import { createAdminRouter } from './routes/admin.js'
+import { createVendorRouter } from './routes/vendor.js'
 
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 
@@ -663,6 +665,12 @@ app.post('/api/horoscope/summarise', authMiddleware, async (req, res) => {
   })
 })
 
+// Admin panel (employee auth + RBAC-gated sections) and vendor self-service portal —
+// see server/lib/rbac.js for why these use their own JWT cookies/middleware
+// distinct from the member authMiddleware above.
+app.use('/api/admin', limiter, createAdminRouter(prisma))
+app.use('/api/vendor', limiter, createVendorRouter(prisma))
+
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
@@ -672,10 +680,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' })
 })
 
-app.listen(PORT, () => {
-  console.log(`\n  ✦ Vivahaa Elite Backend Server ✦`)
-  console.log(`  ─────────────────────────────`)
-  console.log(`  Server running on port ${PORT}`)
-  console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`  API: http://localhost:${PORT}/api\n`)
-})
+// Only bind a port when this file is actually run directly (`node server/index.js`,
+// i.e. local dev / a real long-running host). When Vercel imports `app` as a
+// serverless function (see api/[...path].js), it invokes the exported Express app
+// as a plain request handler per-invocation — calling .listen() there would be at
+// best wasted and at worst fight the platform's own request handling.
+const isMainModule = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`\n  ✦ Vivahaa Elite Backend Server ✦`)
+    console.log(`  ─────────────────────────────`)
+    console.log(`  Server running on port ${PORT}`)
+    console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`)
+    console.log(`  API: http://localhost:${PORT}/api\n`)
+  })
+}
+
+export default app

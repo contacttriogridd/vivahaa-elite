@@ -144,6 +144,20 @@ export function StatusBadge({ status }) {
     verified: { color: ADMIN.cyan, label: 'Verified' },
     elite: { color: ADMIN.gold, label: 'Elite' },
     standard: { color: ADMIN.blue, label: 'Standard' },
+    // Payment (PaymentStatus)
+    success: { color: ADMIN.green, label: 'Success' },
+    failed: { color: ADMIN.red, label: 'Failed' },
+    refunded: { color: ADMIN.orange, label: 'Refunded' },
+    // Booking (BookingStatus)
+    confirmed: { color: ADMIN.blue, label: 'Confirmed' },
+    completed: { color: ADMIN.green, label: 'Completed' },
+    cancelled: { color: ADMIN.red, label: 'Cancelled' },
+    // Enquiry (EnquiryStatus)
+    open: { color: ADMIN.orange, label: 'Open' },
+    converted: { color: ADMIN.green, label: 'Converted' },
+    closed: { color: ADMIN.muted, label: 'Closed' },
+    // DealerEditRequest / VendorComplaint status
+    resolved: { color: ADMIN.green, label: 'Resolved' },
   }
   const s = map[status?.toLowerCase()] || { color: ADMIN.muted, label: status }
   return <ABadge color={s.color} dot>{s.label}</ABadge>

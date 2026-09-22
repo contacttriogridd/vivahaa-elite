@@ -1,17 +1,23 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ADMIN } from '../data.js'
+import { canAccessSection } from './rbac.js'
 
 const A = ADMIN
 
 const NAV = [
   { id: 'overview',  icon: '◈', label: 'Overview',       group: 'main' },
   { id: 'users',     icon: '◉', label: 'Users',           group: 'main' },
+  { id: 'engagement', icon: '♥', label: 'Engagement',     group: 'main' },
+  { id: 'post-match', icon: '⚭', label: 'Post-Match',     group: 'main' },
   { id: 'dealers',   icon: '◎', label: 'Dealers',         group: 'main' },
   { id: 'vendors',   icon: '◐', label: 'Vendors',         group: 'main' },
+  { id: 'employees', icon: '⚙', label: 'Employees',       group: 'main' },
   { id: 'packages',  icon: '◆', label: 'Packages',        group: 'manage' },
   { id: 'gifts',     icon: '◇', label: 'Gifts',           group: 'manage' },
   { id: 'horoscope', icon: '☽', label: 'Horoscope',       group: 'manage' },
+  { id: 'payments',  icon: '₹', label: 'Payments',        group: 'analytics' },
+  { id: 'enquiries', icon: '✉', label: 'Enquiries',       group: 'analytics' },
   { id: 'reports',   icon: '◈', label: 'Reports',         group: 'analytics' },
   { id: 'audit',     icon: '◉', label: 'Audit Log',       group: 'analytics' },
   { id: 'settings',  icon: '◎', label: 'Settings',        group: 'system' },
@@ -24,8 +30,9 @@ const GROUPS = {
   system:    'System',
 }
 
-export default function Sidebar({ active, onChange, onLogout, collapsed, setCollapsed }) {
-  const groups = [...new Set(NAV.map(n => n.group))]
+export default function Sidebar({ active, onChange, onLogout, collapsed, setCollapsed, role }) {
+  const visibleNav = role ? NAV.filter(n => canAccessSection(role, n.id)) : NAV
+  const groups = [...new Set(visibleNav.map(n => n.group))]
 
   return (
     <motion.aside
@@ -96,7 +103,7 @@ export default function Sidebar({ active, onChange, onLogout, collapsed, setColl
                 </motion.p>
               )}
             </AnimatePresence>
-            {NAV.filter(n => n.group === group).map(item => (
+            {visibleNav.filter(n => n.group === group).map(item => (
               <NavItem
                 key={item.id}
                 item={item}

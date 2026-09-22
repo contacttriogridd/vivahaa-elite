@@ -540,6 +540,14 @@ function Footer({ setPage }) {
               </li>
               <li>
                 <button
+                  onClick={() => setPage('vendor-login')}
+                  className="text-[13px] text-vivahaa-ivory/65 transition-colors duration-300 hover:text-vivahaa-gold"
+                >
+                  Vendor sign-in
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => setPage('admin-login')}
                   className="text-[13px] text-vivahaa-ivory/65 transition-colors duration-300 hover:text-vivahaa-gold"
                 >

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { STD, ELITE, state } from './data.js'
 import { Divider, Btn, Card, Input } from './components.jsx'
+import { adminApi } from './admin/apiClient.js'
 
 function LoginShell({ tier = 'standard', title, children }) {
   const t = tier === 'elite' ? ELITE : STD
@@ -45,26 +46,36 @@ export function UserLogin({ setPage, onLogin }) {
 }
 
 export function AdminLogin({ setPage, onAdminLogin }) {
+  const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handle = () => {
-    if (pass === 'admin123' || pass === '') {
-      onAdminLogin()
+  const handle = async () => {
+    setErr(''); setLoading(true)
+    try {
+      const { data } = await adminApi.post('/admin/login', { email, password: pass })
+      localStorage.setItem('employeeAccessToken', data.accessToken)
+      onAdminLogin(data.employee)
       setPage('admin')
-    } else {
-      setErr('Invalid credentials')
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Invalid credentials')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <LoginShell title="Admin Sign-in">
+    <LoginShell title="Employee Sign-in">
+      <Input label="Employee Email" type="email" value={email} onChange={setEmail} />
       <Input label="Password" type="password" value={pass} onChange={setPass} />
       <p style={{ fontSize: 11, color: STD.muted, marginBottom: 12, fontStyle: 'italic' }}>
-        Demo: leave blank or use "admin123"
+        Demo: hr@vivahaaelite.demo / HrAdmin@123
       </p>
       {err && <p style={{ color: '#E53935', fontSize: 13, marginBottom: 12 }}>{err}</p>}
-      <Btn variant="primary" onClick={handle} style={{ width: '100%' }}>Sign In</Btn>
+      <Btn variant="primary" onClick={handle} disabled={loading} style={{ width: '100%' }}>
+        {loading ? 'Signing in…' : 'Sign In'}
+      </Btn>
     </LoginShell>
   )
 }
