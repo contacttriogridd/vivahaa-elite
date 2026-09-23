@@ -1,16 +1,18 @@
 import { z } from 'zod'
 
+/**
+ * 5-step layout (rebuilt from the original 10 steps — see the registration rebuild
+ * plan). No field was dropped in the compression; steps without an exact row in the
+ * spec's step table (horoscope, lifestyle) were folded into the nearest personal/
+ * background step rather than silently discarded — see RegistrationWizard.tsx's step
+ * components for where each landed.
+ */
 export const steps = [
-  'basic',
-  'personal',
-  'education',
-  'family',
-  'horoscope',
-  'assets',
-  'lifestyle',
-  'preferences',
-  'upload',
-  'review',
+  'basicContact',
+  'communityBackground',
+  'educationCareerFamily',
+  'assetsPhotosPartner',
+  'membershipPayment',
 ] as const
 
 export type StepKey = (typeof steps)[number]
@@ -24,12 +26,23 @@ export const MARITAL_STATUSES = [
 
 export const SIBLING_MARITAL_STATUSES = ['Married', 'Unmarried', 'Divorced', 'Widowed'] as const
 
+export const COMPLEXIONS = ['Fair', 'Wheatish', 'Wheatish Brown', 'Dusky', 'Dark'] as const
+
+/**
+ * Nine non-overlapping brackets, replacing the original five lakh-denominated ranges.
+ * Mirrored server-side at server/lib/registrationValidation.js's ASSET_VALUE_RANGES —
+ * keep both in sync.
+ */
 export const ASSET_VALUE_RANGES = [
-  'Under ₹10L',
-  '₹10L–50L',
-  '₹50L–1Cr',
-  '₹1Cr+',
-  'Prefer not to say',
+  'Below ₹1 Cr',
+  '₹1 Cr – ₹5 Cr',
+  '₹5 Cr – ₹10 Cr',
+  '₹10 Cr – ₹20 Cr',
+  '₹20 Cr – ₹50 Cr',
+  '₹50 Cr – ₹100 Cr',
+  '₹100 Cr – ₹200 Cr',
+  '₹200 Cr – ₹500 Cr',
+  'Above ₹500 Cr',
 ] as const
 
 /** Anything other than "Never Married" opens the second-marriage section. */
@@ -59,7 +72,7 @@ const parentSchema = z.object({
 
 export const registerSchema = z
   .object({
-    // ── basic ──────────────────────────────────────────────────────────────
+    // ── Step 1: Basic & Contact Details ──────────────────────────────────────
     fullName: z.string().min(2, 'Name is required'),
     gender: z.string().min(1, 'Please select a gender'),
     dob: z.string().min(1, 'Date of birth is required'),
@@ -74,8 +87,10 @@ export const registerSchema = z
       .regex(/[^A-Za-z0-9]/, 'Include a symbol'),
     confirmPassword: z.string().min(1, 'Confirm your password'),
     languagePreference: z.string().min(1, 'Select preferred language'),
+    location: z.string().min(1, 'Enter your city'),
+    maritalStatus: z.string().min(1, 'Select marital status'),
 
-    // ── personal: community ────────────────────────────────────────────────
+    // ── Step 2: Religion, Community & Personal Background ────────────────────
     religion: z.string().min(1, 'Select a religion'),
     caste: z.string().optional().or(z.literal('')),
     subcaste: optionalText,
@@ -83,8 +98,6 @@ export const registerSchema = z
     kulam: optionalText,
     motherTongue: z.string().min(1, 'Enter your mother tongue'),
 
-    // ── personal: marital history ──────────────────────────────────────────
-    maritalStatus: z.string().min(1, 'Select marital status'),
     hasChildren: z.enum(['yes', 'no']).or(z.literal('')),
     children: z.array(childSchema),
     divorceDecreeConfirmed: z.boolean(),
@@ -92,45 +105,44 @@ export const registerSchema = z
     widowDeclarationConfirmed: z.boolean(),
     spousePassedOn: optionalText,
 
-    // ── personal: physical ─────────────────────────────────────────────────
     height: z.string().min(1, 'Enter your height'),
     weight: z.string().min(1, 'Enter your weight'),
     bloodGroup: z.string().min(1, 'Enter your blood group'),
+    complexion: optionalText,
+    disabilityStatus: optionalText,
 
-    // ── education ──────────────────────────────────────────────────────────
-    qualification: z.string().min(1, 'Enter your qualification'),
-    occupation: z.string().min(1, 'Enter your occupation'),
-    income: z.string().min(1, 'Enter your income'),
-    location: z.string().min(1, 'Enter your work location'),
-
-    // ── family ─────────────────────────────────────────────────────────────
-    father: parentSchema,
-    mother: parentSchema,
-    familyType: z.string().min(1, 'Enter family type'),
-    hasSiblings: z.enum(['yes', 'no']).or(z.literal('')),
-    siblings: z.array(siblingSchema),
-
-    // ── horoscope ──────────────────────────────────────────────────────────
     birthTime: optionalText,
     birthPlace: optionalText,
     nakshatra: optionalText,
     rasi: optionalText,
     noHoroscopeChart: z.boolean(),
 
-    // ── assets ─────────────────────────────────────────────────────────────
-    totalAssetValue: z.string().min(1, 'Select an asset range'),
+    // ── Step 3: Education, Career & Family ────────────────────────────────────
+    qualification: z.string().min(1, 'Enter your qualification'),
+    occupation: z.string().min(1, 'Enter your occupation'),
+    income: z.string().min(1, 'Enter your income'),
 
-    // ── lifestyle ──────────────────────────────────────────────────────────
+    father: parentSchema,
+    mother: parentSchema,
+    familyType: z.string().min(1, 'Enter family type'),
+    hasSiblings: z.enum(['yes', 'no']).or(z.literal('')),
+    siblings: z.array(siblingSchema),
+
     foodPreference: z.string().min(1, 'Select food preference'),
     hobbies: z.string().min(1, 'Enter your hobbies'),
     interests: z.string().min(1, 'Enter your interests'),
     languages: z.string().min(1, 'Enter known languages'),
 
-    // ── preferences ────────────────────────────────────────────────────────
+    // ── Step 4: Assets, Photos & Partner Preferences ──────────────────────────
+    totalAssetValue: z.string().min(1, 'Select an asset range'),
+    photoDataUrl: optionalText,
+
     partnerAge: z.string().min(1, 'Select partner age'),
     partnerReligion: z.string().min(1, 'Select preferred religion'),
     partnerLocation: z.string().min(1, 'Enter preferred location'),
 
+    // ── Step 5: Membership, Payment & Review ──────────────────────────────────
+    selectedPlan: z.string().min(1, 'Choose a membership package'),
     acceptTerms: z.boolean().refine((value) => value, 'Please accept the terms'),
   })
   .superRefine((data, ctx) => {
@@ -190,6 +202,8 @@ export const defaultValues: RegisterFormValues = {
   password: '',
   confirmPassword: '',
   languagePreference: 'English',
+  location: '',
+  maritalStatus: '',
 
   religion: '',
   caste: '',
@@ -197,7 +211,6 @@ export const defaultValues: RegisterFormValues = {
   kulam: '',
   motherTongue: '',
 
-  maritalStatus: '',
   hasChildren: '',
   children: [],
   divorceDecreeConfirmed: false,
@@ -208,17 +221,8 @@ export const defaultValues: RegisterFormValues = {
   height: '',
   weight: '',
   bloodGroup: '',
-
-  qualification: '',
-  occupation: '',
-  income: '',
-  location: '',
-
-  father: { ...emptyParent },
-  mother: { ...emptyParent },
-  familyType: '',
-  hasSiblings: '',
-  siblings: [],
+  complexion: '',
+  disabilityStatus: '',
 
   birthTime: '',
   birthPlace: '',
@@ -226,55 +230,57 @@ export const defaultValues: RegisterFormValues = {
   rasi: '',
   noHoroscopeChart: false,
 
-  totalAssetValue: '',
+  qualification: '',
+  occupation: '',
+  income: '',
+
+  father: { ...emptyParent },
+  mother: { ...emptyParent },
+  familyType: '',
+  hasSiblings: '',
+  siblings: [],
 
   foodPreference: '',
   hobbies: '',
   interests: '',
   languages: '',
 
+  totalAssetValue: '',
+  photoDataUrl: '',
+
   partnerAge: '',
   partnerReligion: '',
   partnerLocation: '',
 
+  selectedPlan: '',
   acceptTerms: false,
 }
 
 export const stepTitles: Record<StepKey, string> = {
-  basic: 'Basic Information',
-  personal: 'Personal Details',
-  education: 'Education & Career',
-  family: 'Family Details',
-  horoscope: 'Horoscope',
-  assets: 'Assets',
-  lifestyle: 'Lifestyle',
-  preferences: 'Partner Preferences',
-  upload: 'Upload Profile',
-  review: 'Review & Submit',
+  basicContact: 'Basic & Contact Details',
+  communityBackground: 'Religion, Community & Background',
+  educationCareerFamily: 'Education, Career & Family',
+  assetsPhotosPartner: 'Assets, Photos & Preferences',
+  membershipPayment: 'Membership & Payment',
 }
 
 export const stepDescriptions: Record<StepKey, string> = {
-  basic: 'Create your trusted identity',
-  personal: 'Share the details that shape your profile',
-  education: 'Highlight your education and career',
-  family: 'Let families feel confident about your background',
-  horoscope: 'Birth details, for those who match by horoscope',
-  assets: 'One question, and only a broad range',
-  lifestyle: 'Share your daily rhythm and interests',
-  preferences: 'Tell us who would be a great match',
-  upload: 'Add your photos and verification documents',
-  review: 'Inspect your profile before submitting',
+  basicContact: 'Create your trusted identity',
+  communityBackground: 'Community, physical profile, and horoscope',
+  educationCareerFamily: 'Career, lifestyle, and family background',
+  assetsPhotosPartner: 'Asset range, photo, and who you’re looking for',
+  membershipPayment: 'Choose your package and complete payment',
 }
 
 type FieldName = keyof RegisterFormValues
 
 /**
  * Fields validated when leaving each step, so a user is corrected where the field
- * is rather than at submit time, six steps later. Conditional sub-sections are
- * covered by the schema's superRefine and surface on their parent step.
+ * is rather than at submit time. Conditional sub-sections are covered by the schema's
+ * superRefine and surface on their parent step.
  */
 export const stepFields: Record<StepKey, FieldName[]> = {
-  basic: [
+  basicContact: [
     'fullName',
     'gender',
     'dob',
@@ -283,27 +289,29 @@ export const stepFields: Record<StepKey, FieldName[]> = {
     'password',
     'confirmPassword',
     'languagePreference',
-  ],
-  personal: [
-    'religion',
-    'motherTongue',
+    'location',
     'maritalStatus',
     'hasChildren',
     'children',
     'divorceDecreeConfirmed',
     'widowDeclarationConfirmed',
-    'height',
-    'weight',
-    'bloodGroup',
   ],
-  education: ['qualification', 'occupation', 'income', 'location'],
-  family: ['father', 'mother', 'familyType', 'siblings'],
-  horoscope: [],
-  assets: ['totalAssetValue'],
-  lifestyle: ['foodPreference', 'hobbies', 'interests', 'languages'],
-  preferences: ['partnerAge', 'partnerReligion', 'partnerLocation'],
-  upload: [],
-  review: ['acceptTerms'],
+  communityBackground: ['religion', 'motherTongue', 'height', 'weight', 'bloodGroup'],
+  educationCareerFamily: [
+    'qualification',
+    'occupation',
+    'income',
+    'father',
+    'mother',
+    'familyType',
+    'siblings',
+    'foodPreference',
+    'hobbies',
+    'interests',
+    'languages',
+  ],
+  assetsPhotosPartner: ['totalAssetValue', 'partnerAge', 'partnerReligion', 'partnerLocation'],
+  membershipPayment: ['selectedPlan', 'acceptTerms'],
 }
 
 /**

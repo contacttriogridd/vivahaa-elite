@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useFormTone } from './formTone'
 
 export interface ComboboxOption {
   id: string
@@ -43,6 +44,8 @@ export function Combobox({
   emptyMessage = 'No options available yet',
   className,
 }: ComboboxProps) {
+  const tone = useFormTone()
+  const isElite = tone === 'elite'
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlighted, setHighlighted] = useState(0)
@@ -134,7 +137,12 @@ export function Combobox({
   return (
     <div className={cn('w-full', className)} ref={containerRef}>
       {label && (
-        <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.1em] text-std-muted dark:text-elite-muted">
+        <label
+          className={cn(
+            'mb-1.5 block font-mono text-[10px] uppercase tracking-[0.1em]',
+            isElite ? 'text-elite-muted' : 'text-std-muted dark:text-elite-muted'
+          )}
+        >
           {label}
         </label>
       )}
@@ -159,8 +167,9 @@ export function Combobox({
           onKeyDown={onKeyDown}
           className={cn(
             'input-premium w-full rounded-xl px-4 py-3 pr-10 text-sm font-inter transition-all duration-300',
-            'bg-white/80 dark:bg-elite-bg/80 text-std-text dark:text-elite-text',
-            'placeholder:text-std-muted/50 dark:placeholder:text-elite-muted/50',
+            isElite
+              ? 'bg-elite-bg/80 text-elite-text placeholder:text-elite-muted/50'
+              : 'bg-white/80 dark:bg-elite-bg/80 text-std-text dark:text-elite-text placeholder:text-std-muted/50 dark:placeholder:text-elite-muted/50',
             'focus:border-royal-gold focus:outline-none focus:ring-2 focus:ring-royal-gold/20',
             disabled && 'cursor-not-allowed opacity-50',
             error && 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
@@ -172,7 +181,10 @@ export function Combobox({
           aria-label={open ? 'Close options' : 'Show options'}
           disabled={disabled}
           onClick={() => (open ? commitAndClose() : openList())}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-std-muted dark:text-elite-muted disabled:opacity-40"
+          className={cn(
+            'absolute right-3 top-1/2 -translate-y-1/2 disabled:opacity-40',
+            isElite ? 'text-elite-muted' : 'text-std-muted dark:text-elite-muted'
+          )}
         >
           <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', open && 'rotate-180')} />
         </button>
@@ -181,10 +193,13 @@ export function Combobox({
           <ul
             id={listId}
             role="listbox"
-            className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-royal-gold/25 bg-white p-1 shadow-lg dark:bg-elite-panel"
+            className={cn(
+              'absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-royal-gold/25 p-1 shadow-lg',
+              isElite ? 'bg-elite-panel' : 'bg-white dark:bg-elite-panel'
+            )}
           >
             {filtered.length === 0 && (
-              <li className="px-3 py-2.5 text-sm text-std-muted dark:text-elite-muted">
+              <li className={cn('px-3 py-2.5 text-sm', isElite ? 'text-elite-muted' : 'text-std-muted dark:text-elite-muted')}>
                 {options.length === 0
                   ? emptyMessage
                   : allowCustom
@@ -200,7 +215,7 @@ export function Combobox({
                   onClick={() => select(option)}
                   className={cn(
                     'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm',
-                    'text-std-text dark:text-elite-text',
+                    isElite ? 'text-elite-text' : 'text-std-text dark:text-elite-text',
                     index === highlighted && 'bg-royal-gold/10'
                   )}
                 >
@@ -214,7 +229,9 @@ export function Combobox({
       </div>
       {error && <p className="mt-1 text-xs font-medium text-red-500">{error}</p>}
       {!error && helperText && (
-        <p className="mt-1.5 text-xs leading-relaxed text-std-muted dark:text-elite-muted">{helperText}</p>
+        <p className={cn('mt-1.5 text-xs leading-relaxed', isElite ? 'text-elite-muted' : 'text-std-muted dark:text-elite-muted')}>
+          {helperText}
+        </p>
       )}
     </div>
   )

@@ -1,35 +1,13 @@
-import React, { useMemo, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useForm, type FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  ArrowRight,
-  ArrowLeft,
-  Sparkles,
-  ShieldCheck,
-  Crown,
-  Eye,
-  EyeOff,
-  Mail,
-  Phone,
-  Lock,
-  User,
-  BadgeCheck,
-  ImagePlus,
-} from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
+import { ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Save, Check, Loader2, PartyPopper } from 'lucide-react'
 import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { GlassCard } from '../../components/ui/card'
-import { CommunityFields } from './CommunityFields'
-import { SecondMarriageSection } from './SecondMarriageSection'
-import { FamilyDetailsStep } from './FamilyDetailsStep'
-import { HoroscopeStep } from './HoroscopeStep'
-import { AssetDetailsStep } from './AssetDetailsStep'
+import { FormToneProvider } from '../../components/ui/formTone'
+import API from '../../lib/api'
 import {
-  MARITAL_STATUSES,
   defaultValues,
-  isRemarriage,
   registerSchema,
   stepDescriptions,
   stepFields,
@@ -38,19 +16,19 @@ import {
   type RegisterFormValues,
   type StepKey,
 } from './registrationSchema'
-import { labelForCaste, labelForKulam, labelForReligion, labelForSubcaste } from '../../lib/taxonomy'
 
-// This panel is always dark (bg-elite-bg, unconditionally) regardless of the
-// browser's light/dark preference, so text here must NOT use the std/elite
-// dark: pairing — that pairing only resolves correctly when a surrounding
-// background flips with it (as Input/Combobox's own backgrounds do). A plain
-// dark: prefix here left `text-std-text` (near-black) showing on this
-// near-black panel for anyone without OS-level dark mode on.
-const selectClass =
-  'w-full rounded-xl border border-royal-gold/20 bg-white/10 px-4 py-3 text-sm text-elite-text'
+const DRAFT_TOKEN_KEY = 'vivahaa_reg_draft_token'
+const AUTOSAVE_DEBOUNCE_MS = 800
 
-const labelClass =
-  'mb-1.5 block font-mono text-[10px] uppercase tracking-[0.1em] text-elite-muted'
+// Each step is its own chunk, loaded only when the member reaches it — critically,
+// this is also what keeps Step 5's Razorpay dependency (loaded inside
+// RazorpayCheckout.tsx) out of every other step's bundle. See the registration
+// rebuild plan's "Performance" section.
+const Step1BasicContact = lazy(() => import('./steps/Step1BasicContact').then((m) => ({ default: m.Step1BasicContact })))
+const Step2CommunityBackground = lazy(() => import('./steps/Step2CommunityBackground').then((m) => ({ default: m.Step2CommunityBackground })))
+const Step3EducationCareerFamily = lazy(() => import('./steps/Step3EducationCareerFamily').then((m) => ({ default: m.Step3EducationCareerFamily })))
+const Step4AssetsPhotosPartner = lazy(() => import('./steps/Step4AssetsPhotosPartner').then((m) => ({ default: m.Step4AssetsPhotosPartner })))
+const Step5MembershipPayment = lazy(() => import('./steps/Step5MembershipPayment').then((m) => ({ default: m.Step5MembershipPayment })))
 
 /**
  * Flatten nested/array RHF errors to dotted paths, so child components stay simple.
@@ -100,13 +78,35 @@ function countFilled(value: unknown): { filled: number; total: number } {
   return { filled, total: 1 }
 }
 
+/**
+ * A quick, non-authoritative read on whether every field this step requires has
+ * *something* in it — used only to decide whether the Save button is enabled.
+ * Booleans, arrays, and nested objects (children/siblings/father/mother) aren't
+ * gated here since "empty" is often a valid answer for them (e.g. no siblings); the
+ * real gate before an actual save is still the zod-backed `trigger()` call.
+ */
+function isStepFilled(fields: readonly string[], values: RegisterFormValues): boolean {
+  return fields.every((field) => {
+    const value = (values as Record<string, unknown>)[field]
+    if (typeof value === 'boolean' || Array.isArray(value) || (value && typeof value === 'object')) return true
+    return String(value ?? '').trim().length > 0
+  })
+}
+
+function StepSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="h-14 animate-pulse rounded-xl bg-white/5" style={{ animationDelay: `${i * 80}ms` }} />
+      ))}
+    </div>
+  )
+}
+
 export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => void }) {
-  const { register: registerUser } = useAuth()
   const [stepIndex, setStepIndex] = useState(0)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitMessage, setSubmitMessage] = useState('')
+  const [draftToken, setDraftToken] = useState<string | null>(null)
+  const [resuming, setResuming] = useState(true)
   const [submitError, setSubmitError] = useState('')
 
   const {
@@ -115,6 +115,7 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
     watch,
     setValue,
     trigger,
+    reset,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -129,14 +130,6 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
   const set = (field: string, value: unknown) =>
     setValue(field as keyof RegisterFormValues, value as never, { shouldDirty: true })
 
-  const age = useMemo(() => {
-    if (!values.dob) return '—'
-    const dob = new Date(values.dob)
-    if (Number.isNaN(dob.getTime())) return '—'
-    const diff = Date.now() - dob.getTime()
-    return Math.abs(new Date(diff).getUTCFullYear() - 1970).toString()
-  }, [values.dob])
-
   const completion = useMemo(() => {
     const { filled, total } = countFilled(values)
     return total === 0 ? 0 : Math.round((filled / total) * 100)
@@ -144,16 +137,109 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
 
   const currentStep = steps[stepIndex]
 
+  // ── Resume-on-refresh: load a previously-saved draft, if this browser has one ──
+  useEffect(() => {
+    const existingToken = localStorage.getItem(DRAFT_TOKEN_KEY)
+    if (!existingToken) {
+      setResuming(false)
+      return
+    }
+    API.get(`/registration/draft/${existingToken}`)
+      .then(({ data }) => {
+        if (data.status === 'paid') {
+          // A stray token from a completed registration — nothing to resume.
+          localStorage.removeItem(DRAFT_TOKEN_KEY)
+          return
+        }
+        setDraftToken(existingToken)
+        reset({ ...defaultValues, ...data.payload })
+        setStepIndex(Math.min(data.currentStep ?? 0, steps.length - 1))
+      })
+      .catch(() => localStorage.removeItem(DRAFT_TOKEN_KEY))
+      .finally(() => setResuming(false))
+    // Only ever runs once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Autosave: debounced, fires on any field change, never per-keystroke synchronously ──
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestValues = useRef(values)
+  latestValues.current = values
+
+  const saveDraft = async (stepIndexAtSave: number) => {
+    try {
+      const { data } = await API.post('/registration/draft', {
+        draftToken,
+        step: steps[stepIndexAtSave],
+        currentStep: stepIndexAtSave,
+        data: latestValues.current,
+      })
+      if (data.draftToken && data.draftToken !== draftToken) {
+        setDraftToken(data.draftToken)
+        localStorage.setItem(DRAFT_TOKEN_KEY, data.draftToken)
+      }
+    } catch {
+      // A transient autosave failure isn't worth interrupting the member over — the
+      // next debounce tick or step change will simply retry with the latest values.
+    }
+  }
+
+  useEffect(() => {
+    if (resuming) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => saveDraft(stepIndex), AUTOSAVE_DEBOUNCE_MS)
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(values), resuming])
+
   const nextStep = async () => {
     const fields = stepFields[currentStep]
     if (fields.length > 0) {
       const valid = await trigger(fields)
       if (!valid) return
     }
+    // Fire-and-forget — the step transition itself should feel instant (optimistic UI);
+    // the debounced watcher above would also catch this, but an explicit save on every
+    // transition means a refresh right after advancing never loses the step just left.
+    saveDraft(stepIndex)
     setStepIndex((prev) => Math.min(prev + 1, steps.length - 1))
   }
 
-  const prevStep = () => setStepIndex((prev) => Math.max(prev - 1, 0))
+  const prevStep = () => {
+    saveDraft(stepIndex)
+    setStepIndex((prev) => Math.max(prev - 1, 0))
+  }
+
+  // ── Explicit per-section Save: validates this step's required fields, then saves
+  // and shows a confirmation. Separate from the silent autosave above — this is the
+  // visible "yes, this section is saved" action a member can trigger on demand. ──
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'checking' | 'saved' | 'incomplete'>('idle')
+  const saveStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stepIsFilled = useMemo(() => isStepFilled(stepFields[currentStep], values), [currentStep, values])
+
+  const handleSaveStep = async () => {
+    setSaveStatus('checking')
+    const fields = stepFields[currentStep]
+    const valid = fields.length === 0 || (await trigger(fields))
+    if (!valid) {
+      setSaveStatus('incomplete')
+    } else {
+      await saveDraft(stepIndex)
+      setSaveStatus('saved')
+    }
+    if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current)
+    saveStatusTimer.current = setTimeout(() => setSaveStatus('idle'), 3000)
+  }
+
+  useEffect(() => {
+    // Switching steps clears any lingering "Saved"/"Incomplete" badge from the last one.
+    setSaveStatus('idle')
+    return () => {
+      if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current)
+    }
+  }, [currentStep])
 
   /** If final validation trips on an earlier step, take the user back to it. */
   const onInvalid = (formErrors: FieldErrors) => {
@@ -164,95 +250,64 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
     if (target >= 0) setStepIndex(target)
   }
 
-  const onSubmit = async (data: RegisterFormValues) => {
-    setIsSubmitting(true)
+  /** Reached once the Razorpay webhook has actually confirmed payment (see
+   * Step5MembershipPayment's RazorpayCheckout, which polls for this rather than
+   * trusting its own client-side success callback). Nothing is created by this
+   * function itself — the account already exists server-side by the time it fires. */
+  const [paymentComplete, setPaymentComplete] = useState(false)
+
+  const handlePaid = () => {
+    localStorage.removeItem(DRAFT_TOKEN_KEY)
+    setPaymentComplete(true)
+  }
+
+  // A brief, visible confirmation before handing off to login — instant, silent
+  // redirects read as "did that actually work?" right after a payment.
+  useEffect(() => {
+    if (!paymentComplete) return
+    const timer = setTimeout(() => onSuccess?.(), 3000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentComplete])
+
+  // Step 5's "submit" is really just final client-side validation before payment can
+  // start — account creation itself happens only from the webhook.
+  const onSubmit = () => {
     setSubmitError('')
-    setSubmitMessage('')
-    try {
-      const payload = {
-        name: data.fullName,
-        email: data.email,
-        password: data.password,
-        mobile: data.mobile,
-        gender: data.gender,
-        dob: data.dob,
+  }
 
-        // Human-readable values for the existing profile columns…
-        religion: labelForReligion(data.religion),
-        caste: data.caste ? labelForCaste(data.religion, data.caste) : '',
-        subcaste: data.subcaste ? labelForSubcaste(data.religion, data.caste ?? '', data.subcaste) : '',
-        kulam: data.kulam ? labelForKulam(data.kulam) : '',
-        // …plus the stable ids, which are what matching should key on.
-        community: {
-          religionId: data.religion,
-          casteId: data.caste,
-          subcasteId: data.subcaste,
-          kulamId: data.kulam,
-        },
+  if (resuming) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-elite-bg">
+        <StepSkeleton />
+      </div>
+    )
+  }
 
-        motherTongue: data.motherTongue,
-        height: data.height,
-        weight: data.weight,
-        bloodGroup: data.bloodGroup,
-        qualification: data.qualification,
-        occupation: data.occupation,
-        income: data.income,
-        location: data.location,
-
-        family: {
-          father: { name: data.father.name, occupation: data.father.occupation },
-          mother: { name: data.mother.name, occupation: data.mother.occupation },
-          familyType: data.familyType,
-          siblings: data.siblings,
-        },
-
-        horoscope: {
-          birthTime: data.birthTime,
-          birthPlace: data.birthPlace,
-          nakshatra: data.nakshatra,
-          rasi: data.rasi,
-        },
-
-        foodPreference: data.foodPreference,
-        hobbies: data.hobbies,
-        // Server column is `lifestyleInterests` — "interests" is reserved for the
-        // Like/Match system now, see prisma/schema.prisma.
-        lifestyleInterests: data.interests,
-        languagesKnown: data.languages,
-        partnerAgeRange: data.partnerAge,
-        partnerReligion: data.partnerReligion,
-        partnerLocation: data.partnerLocation,
-        languagePreference: data.languagePreference,
-        noHoroscopeChart: data.noHoroscopeChart,
-        profileCompletion: Math.min(100, completion),
-
-        /**
-         * Private by default. Kept in its own object so the boundary is visible in the
-         * request body itself and cannot be lost to a careless spread on the server.
-         * Nothing in here may reach a public profile without an explicit opt-in.
-         */
-        private: {
-          maritalStatus: data.maritalStatus,
-          hasChildren: data.hasChildren,
-          children: data.children,
-          divorceDecreeConfirmed: data.divorceDecreeConfirmed,
-          divorceDocumentName: data.divorceDocumentName,
-          widowDeclarationConfirmed: data.widowDeclarationConfirmed,
-          spousePassedOn: data.spousePassedOn,
-          totalAssetValue: data.totalAssetValue,
-          fatherPhone: data.father.phone,
-          motherPhone: data.mother.phone,
-        },
-      }
-      await registerUser(payload)
-      setSubmitMessage('Your profile has been submitted successfully. Welcome to Vivahaa Elite.')
-      onSuccess?.()
-    } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } }).response?.data?.message
-      setSubmitError(message || 'Unable to create profile right now.')
-    } finally {
-      setIsSubmitting(false)
-    }
+  if (paymentComplete) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-elite-bg px-4 text-center text-elite-text">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="max-w-md rounded-[28px] border border-royal-gold/20 bg-white/5 p-8 backdrop-blur-xl"
+        >
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-royal-gold/10 text-royal-gold">
+            <PartyPopper className="h-8 w-8" />
+          </div>
+          <h1 className="font-playfair text-2xl font-semibold text-elite-text">Payment Successful</h1>
+          <p className="mt-2 text-sm text-royal-gold">Your Vivahaa Elite profile has been created.</p>
+          <p className="mt-4 text-sm text-elite-muted">
+            We&apos;ve sent your login details to your email (and phone, if provided). Taking you to
+            sign in…
+          </p>
+          <Button type="button" variant="elite" className="mt-6 w-full" onClick={() => onSuccess?.()}>
+            Continue to Login <ArrowRight className="h-4 w-4" />
+          </Button>
+        </motion.div>
+      </div>
+    )
   }
 
   return (
@@ -281,7 +336,13 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
         </header>
 
         <div className="mb-6 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-          <GlassCard glow className="p-5">
+          {/* Plain, unconditionally-dark panels here — not <GlassCard>, whose
+              background follows the OS/browser's light/dark preference (light ivory
+              by default) while this wizard's text is hardcoded to the dark elite
+              palette. That mismatch made both boxes below nearly unreadable on a
+              light-preference system. See the same fix already applied to Input/
+              Combobox/<select> options for the full pattern. */}
+          <div className="rounded-3xl border border-royal-gold/20 bg-white/5 p-5 shadow-[0_0_40px_rgba(212,175,55,0.12)] backdrop-blur-xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-royal-gold">
@@ -297,8 +358,8 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
               </div>
             </div>
 
-            {/* Step indicator: hairline segments, one per step. */}
-            <div className="flex items-center gap-1.5">
+            {/* 5-node stepper */}
+            <div className="flex items-center gap-2">
               {steps.map((step, index) => (
                 <button
                   key={step}
@@ -308,23 +369,30 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
                   aria-current={index === stepIndex ? 'step' : undefined}
                   onClick={() => index < stepIndex && setStepIndex(index)}
                   disabled={index > stepIndex}
-                  className="group flex-1 py-2"
+                  className="group flex flex-1 flex-col items-center gap-1.5 py-1"
                 >
                   <span
-                    className={`block h-px w-full transition-all duration-500 ${
+                    className={`flex h-7 w-7 items-center justify-center rounded-full font-mono text-[11px] transition-all duration-300 ${
                       index === stepIndex
-                        ? 'h-[2px] bg-royal-gold'
+                        ? 'bg-royal-gold text-elite-bg'
                         : index < stepIndex
-                          ? 'bg-royal-gold/50'
-                          : 'bg-white/15'
+                          ? 'bg-royal-gold/30 text-royal-gold'
+                          : 'bg-white/10 text-elite-muted'
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
+                  <span
+                    className={`h-[2px] w-full transition-all duration-500 ${
+                      index <= stepIndex ? 'bg-royal-gold/60' : 'bg-white/10'
                     }`}
                   />
                 </button>
               ))}
             </div>
-          </GlassCard>
+          </div>
 
-          <GlassCard className="p-5">
+          <div className="rounded-3xl border border-royal-gold/20 bg-white/5 p-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-royal-gold/10 p-3 text-royal-gold">
                 <ShieldCheck className="h-5 w-5" />
@@ -337,7 +405,7 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
                 </p>
               </div>
             </div>
-          </GlassCard>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex-1">
@@ -347,260 +415,42 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               className="rounded-[28px] border border-royal-gold/20 bg-white/5 p-4 backdrop-blur-xl sm:p-6"
             >
-              {currentStep === 'basic' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input label="Full Name" icon={<User className="h-4 w-4" />} error={errors.fullName?.message} {...register('fullName')} />
-                  <div>
-                    <label className={labelClass}>Gender</label>
-                    <select className={selectClass} {...register('gender')}>
-                      <option value="">Select</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    {errors.gender && <p className="mt-1 text-xs text-red-500">{errors.gender.message}</p>}
-                  </div>
-                  <Input label="Date of Birth" type="date" error={errors.dob?.message} {...register('dob')} />
-                  <div className="rounded-2xl border border-royal-gold/20 bg-royal-gold/10 p-4 text-sm text-elite-text">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-royal-gold">Calculated age</p>
-                    <p className="mt-2 font-playfair text-2xl text-royal-gold">{age}</p>
-                  </div>
-                  <Input label="Mobile Number" icon={<Phone className="h-4 w-4" />} error={errors.mobile?.message} {...register('mobile')} />
-                  <Input label="Email Address" icon={<Mail className="h-4 w-4" />} error={errors.email?.message} {...register('email')} />
-                  <div className="relative">
-                    <Input label="Password" type={showPassword ? 'text' : 'password'} icon={<Lock className="h-4 w-4" />} error={errors.password?.message} {...register('password')} />
-                    <button type="button" onClick={() => setShowPassword((prev) => !prev)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-[34px] text-elite-muted">
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Input label="Confirm Password" type={showConfirmPassword ? 'text' : 'password'} icon={<Lock className="h-4 w-4" />} error={errors.confirmPassword?.message} {...register('confirmPassword')} />
-                    <button type="button" onClick={() => setShowConfirmPassword((prev) => !prev)} aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-[34px] text-elite-muted">
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  <div>
-                    <label className={labelClass}>Preferred Language</label>
-                    <select className={selectClass} {...register('languagePreference')}>
-                      <option value="English">English</option>
-                      <option value="தமிழ்">Tamil</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 'personal' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <CommunityFields
-                    religion={values.religion}
-                    caste={values.caste ?? ''}
-                    subcaste={values.subcaste ?? ''}
-                    kulam={values.kulam ?? ''}
-                    onChange={set}
-                    errors={{
-                      religion: fieldErrors.religion,
-                      caste: fieldErrors.caste,
-                      subcaste: fieldErrors.subcaste,
-                      kulam: fieldErrors.kulam,
-                    }}
+              <Suspense fallback={<StepSkeleton />}>
+              <FormToneProvider tone="elite">
+                {currentStep === 'basicContact' && (
+                  <Step1BasicContact register={register} errors={errors} fieldErrors={fieldErrors} values={values} set={set} />
+                )}
+                {currentStep === 'communityBackground' && (
+                  <Step2CommunityBackground register={register} errors={errors} fieldErrors={fieldErrors} values={values} set={set} />
+                )}
+                {currentStep === 'educationCareerFamily' && (
+                  <Step3EducationCareerFamily register={register} errors={errors} fieldErrors={fieldErrors} values={values} set={set} />
+                )}
+                {currentStep === 'assetsPhotosPartner' && (
+                  <Step4AssetsPhotosPartner register={register} errors={errors} fieldErrors={fieldErrors} values={values} set={set} />
+                )}
+                {currentStep === 'membershipPayment' && (
+                  <Step5MembershipPayment
+                    register={register}
+                    errors={errors}
+                    fieldErrors={fieldErrors}
+                    values={values}
+                    set={set}
+                    draftToken={draftToken}
+                    onPaid={handlePaid}
                   />
-
-                  <Input label="Mother Tongue" error={errors.motherTongue?.message} {...register('motherTongue')} />
-
-                  <div>
-                    <label className={labelClass}>Marital Status</label>
-                    <select
-                      className={selectClass}
-                      value={values.maritalStatus}
-                      onChange={(event) => {
-                        const next = event.target.value
-                        set('maritalStatus', next)
-                        // Leaving a remarriage status must not strand its answers on the profile.
-                        if (!isRemarriage(next)) {
-                          set('hasChildren', '')
-                          set('children', [])
-                          set('divorceDecreeConfirmed', false)
-                          set('divorceDocumentName', '')
-                          set('widowDeclarationConfirmed', false)
-                          set('spousePassedOn', '')
-                        }
-                      }}
-                    >
-                      <option value="">Select</option>
-                      {MARITAL_STATUSES.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                    {fieldErrors.maritalStatus && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.maritalStatus}</p>
-                    )}
-                  </div>
-
-                  {isRemarriage(values.maritalStatus) && (
-                    <SecondMarriageSection
-                      maritalStatus={values.maritalStatus}
-                      hasChildren={values.hasChildren}
-                      children={values.children}
-                      divorceDecreeConfirmed={values.divorceDecreeConfirmed}
-                      divorceDocumentName={values.divorceDocumentName ?? ''}
-                      widowDeclarationConfirmed={values.widowDeclarationConfirmed}
-                      spousePassedOn={values.spousePassedOn ?? ''}
-                      onChange={set}
-                      errors={fieldErrors}
-                    />
-                  )}
-
-                  <Input label="Height" error={errors.height?.message} {...register('height')} />
-                  <Input label="Weight" error={errors.weight?.message} {...register('weight')} />
-                  <Input label="Blood Group" error={errors.bloodGroup?.message} {...register('bloodGroup')} />
-                </div>
-              )}
-
-              {currentStep === 'education' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input label="Highest Qualification" error={errors.qualification?.message} {...register('qualification')} />
-                  <Input label="Occupation" error={errors.occupation?.message} {...register('occupation')} />
-                  <Input label="Annual Income" error={errors.income?.message} {...register('income')} />
-                  <Input label="Work Location" error={errors.location?.message} {...register('location')} />
-                </div>
-              )}
-
-              {currentStep === 'family' && (
-                <FamilyDetailsStep
-                  father={values.father}
-                  mother={values.mother}
-                  familyType={values.familyType}
-                  hasSiblings={values.hasSiblings}
-                  siblings={values.siblings}
-                  onChange={set}
-                  errors={fieldErrors}
-                />
-              )}
-
-              {currentStep === 'horoscope' && (
-                <HoroscopeStep
-                  dob={values.dob}
-                  birthTime={values.birthTime ?? ''}
-                  birthPlace={values.birthPlace ?? ''}
-                  nakshatra={values.nakshatra ?? ''}
-                  rasi={values.rasi ?? ''}
-                  noHoroscopeChart={values.noHoroscopeChart}
-                  onChange={set}
-                />
-              )}
-
-              {currentStep === 'assets' && (
-                <AssetDetailsStep
-                  totalAssetValue={values.totalAssetValue}
-                  onChange={set}
-                  error={fieldErrors.totalAssetValue}
-                />
-              )}
-
-              {currentStep === 'lifestyle' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className={labelClass}>Food Preference</label>
-                    <select className={selectClass} {...register('foodPreference')}>
-                      <option value="">Select</option>
-                      <option value="Vegetarian">Vegetarian</option>
-                      <option value="Non-Vegetarian">Non-Vegetarian</option>
-                      <option value="Eggetarian">Eggetarian</option>
-                    </select>
-                    {errors.foodPreference && <p className="mt-1 text-xs text-red-500">{errors.foodPreference.message}</p>}
-                  </div>
-                  <Input label="Hobbies" error={errors.hobbies?.message} {...register('hobbies')} />
-                  <Input label="Interests" error={errors.interests?.message} {...register('interests')} />
-                  <Input label="Languages Known" error={errors.languages?.message} {...register('languages')} />
-                </div>
-              )}
-
-              {currentStep === 'preferences' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input label="Preferred Age" error={errors.partnerAge?.message} {...register('partnerAge')} />
-                  <Input label="Preferred Religion" error={errors.partnerReligion?.message} {...register('partnerReligion')} />
-                  <Input label="Preferred Location" error={errors.partnerLocation?.message} {...register('partnerLocation')} />
-                </div>
-              )}
-
-              {currentStep === 'upload' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-dashed border-royal-gold/30 bg-white/5 p-4">
-                    <p className="font-medium text-elite-text">Profile Picture</p>
-                    <p className="mt-1 text-sm text-elite-muted">JPEG or PNG under 2MB</p>
-                    <div className="mt-3 flex items-center gap-2 text-royal-gold">
-                      <ImagePlus className="h-4 w-4" /> <span className="text-sm">Upload soon</span>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-dashed border-royal-gold/30 bg-white/5 p-4">
-                    <p className="font-medium text-elite-text">Horoscope / Verification</p>
-                    <p className="mt-1 text-sm text-elite-muted">PDF or image upload ready for future integration</p>
-                    <div className="mt-3 flex items-center gap-2 text-royal-gold">
-                      <BadgeCheck className="h-4 w-4" /> <span className="text-sm">Secure and encrypted</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 'review' && (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-royal-gold/20 bg-royal-gold/10 p-4">
-                    <div className="flex items-center gap-2 text-royal-gold">
-                      <Crown className="h-4 w-4" />
-                      <span className="font-semibold">Review your profile</span>
-                    </div>
-                    <p className="mt-2 text-sm text-elite-muted">
-                      Verify your details before submitting to the premium community.
-                    </p>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {([
-                      ['Full Name', values.fullName],
-                      ['Email', values.email],
-                      ['Mobile', values.mobile],
-                      ['Religion', values.religion ? labelForReligion(values.religion) : ''],
-                      ['Caste', values.caste ? labelForCaste(values.religion, values.caste) : ''],
-                      ...(values.kulam ? [['Kulam / Koottam', labelForKulam(values.kulam)] as const] : []),
-                      ['Occupation', values.occupation],
-                      ['Location', values.location],
-                    ] as const).map(([label, value]) => (
-                      <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-royal-gold">{label}</p>
-                        <p className="mt-1 text-sm text-elite-text">{value || '—'}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-elite-muted">
-                    Marital history, documents, family contact numbers, and your asset range are not
-                    listed here because they stay private.
-                  </p>
-                  <label className="flex items-start gap-3 rounded-2xl border border-royal-gold/20 bg-white/5 p-3 text-sm text-elite-muted">
-                    <input type="checkbox" className="mt-1 h-4 w-4 rounded border-royal-gold/30 text-royal-gold" {...register('acceptTerms')} />
-                    <span>
-                      I agree to the privacy policy, terms of service, and consent to secure
-                      verification of my profile.
-                    </span>
-                  </label>
-                  {errors.acceptTerms && <p className="text-xs text-red-500">{errors.acceptTerms.message}</p>}
-                </div>
-              )}
+                )}
+              </FormToneProvider>
+              </Suspense>
             </motion.div>
           </AnimatePresence>
 
-          {(submitError || submitMessage) && (
-            <div
-              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
-                submitError
-                  ? 'border-red-500/30 bg-red-500/10 text-red-400'
-                  : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-              }`}
-            >
-              {submitError || submitMessage}
+          {submitError && (
+            <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {submitError}
             </div>
           )}
 
@@ -608,15 +458,38 @@ export default function RegistrationWizard({ onSuccess }: { onSuccess?: () => vo
             <Button type="button" variant="ghost" onClick={prevStep} disabled={stepIndex === 0}>
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
-            {currentStep === 'review' ? (
-              <Button type="submit" variant="elite" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating profile...' : 'Create Profile'}
+
+            <div className="flex flex-wrap items-center gap-3">
+              {saveStatus === 'saved' && (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                  <Check className="h-3.5 w-3.5" /> Section saved
+                </span>
+              )}
+              {saveStatus === 'incomplete' && (
+                <span className="text-xs font-medium text-red-500">Fill the required fields to save</span>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveStep}
+                disabled={!stepIsFilled || saveStatus === 'checking'}
+              >
+                {saveStatus === 'checking' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" /> Save section
+                  </>
+                )}
               </Button>
-            ) : (
-              <Button type="button" variant="elite" onClick={nextStep}>
-                Continue <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
+              {currentStep !== 'membershipPayment' && (
+                <Button type="button" variant="elite" onClick={nextStep}>
+                  Continue <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </div>

@@ -12,6 +12,13 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #D4AF3755; border-radius: 3px; }
   ::selection { background: #D4AF3744; color: #7B1E2B; }
+
+  /* A <select>'s dropdown popup is rendered by the OS/browser chrome, not by our
+     page — on Windows especially, it shows on a plain light system background no
+     matter what the <select> itself is styled with. Any of our pale/gold text colors
+     (meant for dark panels) become washed-out and barely legible there, so option
+     text is pinned to a plain dark color, always, regardless of surrounding theme. */
+  option { color: #1A1A1A; background-color: #FFFFFF; }
 }
 
 @layer components {

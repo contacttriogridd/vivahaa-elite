@@ -106,7 +106,10 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'landing':       return <Landing setPage={setPage} />
-      case 'register':      return <Register onSuccess={() => setPage('dashboard')} />
+      // Registration no longer auto-logs the member in — the account is only created
+      // once Razorpay's webhook confirms payment (server/routes/payments.js), so
+      // there's no session to land in a dashboard with yet. Send them to sign in.
+      case 'register':      return <Register onSuccess={() => setPage('premium-login')} />
       case 'premium-login': return <PremiumLogin onLogin={handleUnifiedLogin} />
       case 'dashboard':     return user ? <Dashboard /> : <PremiumLogin onLogin={handleUnifiedLogin} />
       default:              return <Landing setPage={setPage} />

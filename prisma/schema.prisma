@@ -120,6 +120,10 @@ model User {
   height             String?
   weight             String?
   bloodGroup         String?
+  complexion         String?
+  /// Free text ("none" is a valid value) rather than a boolean + details pair, so
+  /// there is only one field that can go stale.
+  disabilityStatus   String?
   foodPreference     String?
   hobbies            String?
   /// Free-text "interests" from the wizard's lifestyle step. Deliberately NOT named
@@ -192,6 +196,10 @@ model User {
   messagesSent         Message[]
   profileViewsMade     ProfileView[] @relation("Viewer")
   profileViewsReceived ProfileView[] @relation("Viewed")
+
+  // Admin panel filters by these together frequently (Reports, Engagement, Users).
+  @@index([religion, caste, city])
+  @@index([plan])
 }
 
 /// One-directional "like." A row in both directions between the same pair is what
@@ -547,26 +555,67 @@ model Vendor {
 /// VENDOR_BOOKING payment to a vendor (vendorId is set). dealerId is set whenever the
 /// paying user was registered via a dealer, so dealer revenue can be attributed
 /// without re-deriving it from User.dealerId on every query.
+///
+/// `userId` is nullable because a Razorpay order (and this row) is created against a
+/// `RegistrationDraft` *before* any `User` exists — see the webhook in
+/// server/routes/payments.js, which is the only place a self-registered `User` gets
+/// created. `payerName`/`payerEmail` are snapshotted from the draft so the admin
+/// Payments screen still shows who a pending/failed pre-signup row belongs to.
 model Payment {
-  id            String        @id @default(cuid())
-  userId        String
-  dealerId      String?
-  vendorId      String?
-  bookingId     String?
-  amount        Float
-  method        PaymentMethod
-  status        PaymentStatus @default(PENDING)
-  type          PaymentType   @default(MEMBERSHIP)
+  id                String        @id @default(cuid())
+  userId            String?
+  dealerId          String?
+  vendorId          String?
+  bookingId         String?
+  draftId           String?
+  amount            Float
+  /// Unknown until Razorpay reports it at capture time — null for a still-PENDING
+  /// order created ahead of checkout.
+  method            PaymentMethod?
+  status            PaymentStatus @default(PENDING)
+  type              PaymentType   @default(MEMBERSHIP)
   /// Snapshot of the member's plan at the moment of payment — set for MEMBERSHIP
   /// payments. Deliberately not derived from the live User.plan, which can change
   /// after this payment (upgrades/downgrades) and would silently rewrite history.
-  tierAtPayment PlanTier?
-  createdAt     DateTime      @default(now())
+  tierAtPayment     PlanTier?
+  payerName         String?
+  payerEmail        String?
+  /// Razorpay order id — set at order-creation time, before payment. Unique so the
+  /// webhook can upsert idempotently against redelivery.
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  razorpaySignature String?
+  createdAt         DateTime      @default(now())
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dealer  Dealer?  @relation(fields: [dealerId], references: [id])
-  vendor  Vendor?  @relation(fields: [vendorId], references: [id])
-  booking Booking? @relation(fields: [bookingId], references: [id])
+  user    User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dealer  Dealer?            @relation(fields: [dealerId], references: [id])
+  vendor  Vendor?            @relation(fields: [vendorId], references: [id])
+  booking Booking?           @relation(fields: [bookingId], references: [id])
+  draft   RegistrationDraft? @relation(fields: [draftId], references: [id])
+}
+
+/// A registration-in-progress that has not yet become a `User`. The public registration
+/// wizard (src/pages/register/) saves Step 1-4 data here as the member fills it in, keyed
+/// by `draftToken` (opaque, given to the client, stored in its localStorage) so a refresh
+/// resumes exactly where they left off. A `User` row is only ever created from a draft by
+/// the Razorpay webhook (server/routes/payments.js) once payment is confirmed — see that
+/// file for why no account exists before payment clears.
+model RegistrationDraft {
+  id           String    @id @default(cuid())
+  draftToken   String    @unique
+  /// Merged step 1-4 field data, including the photo as a base64 data URL. Shape mirrors
+  /// src/pages/register/registrationSchema.ts's RegisterFormValues.
+  payload      Json      @default("{}")
+  currentStep  Int       @default(0)
+  email        String?
+  selectedPlan PlanTier?
+  /// "in_progress" | "paid" | "expired"
+  status       String    @default("in_progress")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  expiresAt    DateTime
+
+  payments Payment[]
 }
 
 /// A vendor-service booking made through the platform, e.g. after a match is

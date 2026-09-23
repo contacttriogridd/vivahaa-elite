@@ -13,6 +13,8 @@ import { readFileSync } from 'fs'
 import { createAdminRouter } from './routes/admin.js'
 import { createVendorRouter } from './routes/vendor.js'
 import { signEmployeeToken, signVendorToken } from './lib/rbac.js'
+import { createRegistrationRouter } from './routes/registration.js'
+import { createPaymentsRouter } from './routes/payments.js'
 
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 
@@ -31,7 +33,15 @@ const PORT = process.env.BACKEND_PORT || 4000
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }))
 app.use(cookieParser())
-app.use(express.json({ limit: '10kb' }))
+// Registration drafts carry a base64 photo (see "Photo storage" decision in the
+// registration rebuild plan) — 10kb is nowhere near enough for that, so the limit is
+// raised here. `verify` stashes the exact raw bytes on `req.rawBody`, which the
+// Razorpay webhook needs to recompute its HMAC signature over (JSON.stringify(req.body)
+// is not guaranteed to reproduce the exact bytes Razorpay signed).
+app.use(express.json({
+  limit: '6mb',
+  verify: (req, _res, buf) => { req.rawBody = buf },
+}))
 
 // Rate limiting
 const limiter = rateLimit({
@@ -697,6 +707,13 @@ app.post('/api/horoscope/summarise', authMiddleware, async (req, res) => {
 // distinct from the member authMiddleware above.
 app.use('/api/admin', limiter, createAdminRouter(prisma))
 app.use('/api/vendor', limiter, createVendorRouter(prisma))
+
+// Public registration wizard drafts + Razorpay-gated membership checkout — see
+// server/routes/registration.js and server/routes/payments.js. `limiter` is the same
+// window as /api/auth; the webhook itself is not rate-limited by IP since Razorpay's
+// own infra is the caller, not a browser.
+app.use('/api/registration', limiter, createRegistrationRouter(prisma))
+app.use('/api/payments', createPaymentsRouter(prisma))
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
