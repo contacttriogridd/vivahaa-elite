@@ -42,13 +42,14 @@ export function createPaymentsRouter(prisma) {
 
       const razorpay = getRazorpay()
       if (!razorpay) {
-        // Outside production this is recoverable — RazorpayCheckout.tsx offers a demo
-        // completion path (POST /demo/complete below) instead of dead-ending here, so
-        // the rest of the flow (webhook-equivalent account creation, redirect to
-        // login) can still be exercised without real Razorpay keys.
+        // When ALLOW_DEMO_PAYMENTS=true, this is recoverable — RazorpayCheckout.tsx
+        // offers a demo completion path (POST /demo/complete below) instead of
+        // dead-ending here, so the rest of the flow (webhook-equivalent account
+        // creation, redirect to login) can still be exercised without real Razorpay
+        // keys. See that route's comment for why this isn't a NODE_ENV check.
         return res.status(503).json({
           message: 'Payments are not configured yet.',
-          demoAvailable: process.env.NODE_ENV !== 'production',
+          demoAvailable: process.env.ALLOW_DEMO_PAYMENTS === 'true',
         })
       }
 
@@ -92,14 +93,19 @@ export function createPaymentsRouter(prisma) {
     }
   })
 
-  // POST /api/payments/demo/complete — dev/staging only (404s outright in
-  // production, same guard as /api/auth/demo-login). Lets the registration flow be
-  // exercised end-to-end — including the account-creation step that normally only
-  // the signature-verified webhook triggers — when no real Razorpay keys are set.
-  // Goes through the exact same `handlePaymentCaptured` the real webhook uses, just
-  // with a synthetic payment id/order id instead of one Razorpay issued.
+  // POST /api/payments/demo/complete — gated on an explicit opt-in env var, not
+  // NODE_ENV. Vercel always runs with NODE_ENV=production (including preview
+  // deployments), so tying this to NODE_ENV would 404 it out of existence on every
+  // real deployment — exactly where a demo build most needs it. ALLOW_DEMO_PAYMENTS
+  // must be deliberately set to "true" wherever this should be reachable; unset
+  // anywhere it shouldn't (e.g. once real Razorpay keys are live). Lets the
+  // registration flow be exercised end-to-end — including the account-creation step
+  // that normally only the signature-verified webhook triggers — when no real
+  // Razorpay keys are set. Goes through the exact same `handlePaymentCaptured` the
+  // real webhook uses, just with a synthetic payment id/order id instead of one
+  // Razorpay issued.
   router.post('/demo/complete', async (req, res) => {
-    if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not available in production' })
+    if (process.env.ALLOW_DEMO_PAYMENTS !== 'true') return res.status(404).json({ message: 'Not available' })
     try {
       const { draftToken, planTier } = req.body || {}
       const plan = planByTier(planTier)
