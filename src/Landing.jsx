@@ -487,7 +487,7 @@ function Footer({ setPage }) {
         <p className="font-cormorant text-3xl font-light tracking-wide">Vivahaa Elite</p>
         <div className="mt-8 h-px w-full bg-vivahaa-gold/25" />
 
-        <div className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-10 sm:grid-cols-3">
           <div>
             <Label className="text-vivahaa-gold">Contact</Label>
             <p className="mt-4 text-[13px] leading-relaxed text-vivahaa-ivory/65">
@@ -525,35 +525,6 @@ function Footer({ setPage }) {
                   {item}
                 </li>
               ))}
-            </ul>
-          </div>
-          <div>
-            <Label className="text-vivahaa-gold">Partners</Label>
-            <ul className="mt-4 space-y-2.5">
-              <li>
-                <button
-                  onClick={() => setPage('dealer-login')}
-                  className="text-[13px] text-vivahaa-ivory/65 transition-colors duration-300 hover:text-vivahaa-gold"
-                >
-                  Dealer sign-in
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setPage('vendor-login')}
-                  className="text-[13px] text-vivahaa-ivory/65 transition-colors duration-300 hover:text-vivahaa-gold"
-                >
-                  Vendor sign-in
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setPage('admin-login')}
-                  className="text-[13px] text-vivahaa-ivory/65 transition-colors duration-300 hover:text-vivahaa-gold"
-                >
-                  Admin sign-in
-                </button>
-              </li>
             </ul>
           </div>
         </div>
