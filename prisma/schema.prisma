@@ -1,0 +1,710 @@
+generator client {
+  provider      = "prisma-client-js"
+  // "native" alone only generates the query engine for whatever platform runs
+  // `prisma generate` (Vercel's build container here) — Vercel's actual Lambda
+  // runtime container can use a different OpenSSL/glibc ABI, which manifests as
+  // an opaque FUNCTION_INVOCATION_FAILED crash at request time rather than a
+  // build failure. rhel-openssl-3.0.x is Vercel's documented Lambda target.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// The real source of truth for a member's paid tier. `User.tier` ("standard"|"elite")
+/// stays alongside it for every legacy .jsx component that already reads that string —
+/// it is always derived from `plan` server-side (see isElitePlan in server/index.js),
+/// never set independently, so the two can't drift.
+enum PlanTier {
+  SILVER
+  GOLD
+  DIAMOND
+  PLATINUM
+  PLATINUM_PLUS
+}
+
+/// Admin-panel employee roles. See DEMO_CREDENTIALS.md / admin RBAC middleware for
+/// what each role can reach — enforced both in server/adminAuth.js and by hiding
+/// nav items client-side.
+enum EmployeeRole {
+  HR_ADMIN
+  USER_MANAGEMENT
+  VENDOR_MANAGEMENT
+  DEALER_MANAGEMENT
+}
+
+enum PaymentMethod {
+  CARD
+  UPI
+  NETBANKING
+  WALLET
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+/// MEMBERSHIP payments snapshot `tierAtPayment`; VENDOR_BOOKING payments link `vendor`
+/// (and usually `booking`) instead.
+enum PaymentType {
+  MEMBERSHIP
+  VENDOR_BOOKING
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+/// Only meaningful when status is CANCELLED.
+enum CancelledBy {
+  USER
+  VENDOR
+}
+
+enum EnquiryStatus {
+  OPEN
+  CONVERTED
+  CLOSED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String?
+  name          String?
+  googleId      String?  @unique
+  avatar        String?
+  emailVerified Boolean  @default(false)
+  phone         String?
+  phoneVerified Boolean  @default(false)
+  gender        String?
+  dob           String?
+  religion      String?
+  caste         String?
+  subcaste      String?
+  /// Kongu Vellalar Gounder only. See src/data/taxonomy/konguKulams.json.
+  kulam         String?
+  /// Stable taxonomy ids behind the display strings above; matching keys on these.
+  religionId    String?
+  casteId       String?
+  subcasteId    String?
+  kulamId       String?
+  motherTongue  String?
+  familyType    String?
+  city          String?
+  /// Resolved at registration from a static lookup for the platform's known service
+  /// cities (see src/data/taxonomy/cityGeo.json) — no geocoding API. Null for any
+  /// other city; such profiles are excluded from radius search but still match on
+  /// the plain-text location filter.
+  latitude      Float?
+  longitude     Float?
+  education     String?
+  occupation    String?
+  income        String?
+  tier          String   @default("standard")
+  plan          PlanTier @default(GOLD)
+  feeStatus     String   @default("pending")
+  approved      Boolean  @default(false)
+
+  // Physical / lifestyle — previously collected by the registration wizard and
+  // silently dropped by this route; now actually persisted.
+  height             String?
+  weight             String?
+  bloodGroup         String?
+  complexion         String?
+  /// Free text ("none" is a valid value) rather than a boolean + details pair, so
+  /// there is only one field that can go stale.
+  disabilityStatus   String?
+  foodPreference     String?
+  hobbies            String?
+  /// Free-text "interests" from the wizard's lifestyle step. Deliberately NOT named
+  /// "interests" — that word now belongs to the Like/Match system below, and reusing
+  /// it here would collide.
+  lifestyleInterests String?
+  languagesKnown     String?
+  languagePreference String?
+
+  // Partner search criteria collected at registration. Flat strings for now,
+  // matching the existing precedent (religion/caste/etc.) rather than a new table —
+  // revisit only if these need independent privacy controls later.
+  partnerAgeRange String?
+  partnerReligion String?
+  partnerLocation String?
+
+  nakshatra        String?
+  rashi            String?
+  birthTime        String?
+  birthPlace       String?
+  noHoroscopeChart Boolean @default(false)
+
+  // Trust & safety
+  idVerified      Boolean @default(false)
+  photoVerified   Boolean @default(false)
+  /// Elite-tier "video call verification" badge.
+  videoVerified   Boolean @default(false)
+  /// "public" | "connections" | "blurred" — who can see this member's photo at full
+  /// resolution. Enforced server-side wherever a profile photo URL is served, not
+  /// just a client-side CSS blur.
+  photoVisibility String  @default("public")
+
+  status            String    @default("active")
+  profileCompletion Int       @default(0)
+  lastLogin         DateTime?
+  /// Touched on login and on GET /api/auth/profile — backs the "recently active" sort.
+  lastActiveAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  /// Set when this member was registered by a dealer (admin Dealer Management ->
+  /// drill-down list, and the dealer's payment/tier attribution). Null for
+  /// ordinary self-registered members.
+  dealerId String?
+  dealer   Dealer? @relation(fields: [dealerId], references: [id])
+
+  sessions      Session[]
+  devices       Device[]
+  otps          OTP[]
+  notifications Notification[]
+  rewards       Reward[]
+  activityLogs  ActivityLog[]
+  auditLogs     AuditLog[]
+
+  payments         Payment[]
+  bookings         Booking[]
+  vendorRatings    VendorRating[]
+  enquiries        Enquiry[]
+  vendorComplaints VendorComplaint[]
+
+  privateProfile PrivateProfile?
+  siblings       Sibling[]
+  parents        Parent[]
+  documents      ProfileDocument[]
+
+  likesSent            Like[]        @relation("LikesSent")
+  likesReceived        Like[]        @relation("LikesReceived")
+  matchesAsA           Match[]       @relation("MatchUserA")
+  matchesAsB           Match[]       @relation("MatchUserB")
+  messagesSent         Message[]
+  profileViewsMade     ProfileView[] @relation("Viewer")
+  profileViewsReceived ProfileView[] @relation("Viewed")
+
+  // Admin panel filters by these together frequently (Reports, Engagement, Users).
+  @@index([religion, caste, city])
+  @@index([plan])
+}
+
+/// One-directional "like." A row in both directions between the same pair is what
+/// creates a Match (see server/index.js's like route, which does both writes in one
+/// transaction).
+model Like {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  createdAt  DateTime @default(now())
+
+  fromUser User @relation("LikesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("LikesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+}
+
+/// Created once both directions of a Like exist. userAId/userBId are always stored
+/// with the lexicographically-smaller id first so the unique constraint doesn't need
+/// to worry about direction.
+model Match {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  matchedAt DateTime @default(now())
+
+  userA    User      @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User      @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([userAId, userBId])
+}
+
+/// Scoped to a Match — there is no messaging between two users who are not mutually
+/// matched. See the Like/Match models above.
+model Message {
+  id        String    @id @default(cuid())
+  matchId   String
+  senderId  String
+  body      String
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  match  Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+/// "Who viewed my profile" — an Elite-tier perk. Gate reading this to Elite users at
+/// the route level; every profile view still gets logged regardless of the viewer's
+/// tier, so upgrading to Elite reveals history that already exists.
+model ProfileView {
+  id           String   @id @default(cuid())
+  viewerId     String
+  viewedUserId String
+  createdAt    DateTime @default(now())
+
+  viewer     User @relation("Viewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  viewedUser User @relation("Viewed", fields: [viewedUserId], references: [id], onDelete: Cascade)
+}
+
+/// Sensitive registration data, kept OFF the User row on purpose.
+///
+/// Everything here is private by default. A public profile serializer must never
+/// spread this model — it must read individual fields and honour the matching
+/// `show*` flag, each of which defaults to false and can only be turned on by the
+/// member. Keeping these columns in a separate table means an accidental
+/// `select: *` on User cannot leak them.
+model PrivateProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  maritalStatus             String?
+  hasChildren               Boolean @default(false)
+  divorceDecreeConfirmed    Boolean @default(false)
+  widowDeclarationConfirmed Boolean @default(false)
+  spousePassedOn            String?
+  totalAssetValue           String?
+
+  // Explicit, per-field opt-in. Default closed.
+  showMaritalStatus  Boolean @default(false)
+  showChildren       Boolean @default(false)
+  showAssetValue     Boolean @default(false)
+  showParentContacts Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children Child[]
+}
+
+model Child {
+  id               String  @id @default(cuid())
+  privateProfileId String
+  age              String?
+  /// "yes" | "no" | "shared"
+  livesWithMember  String?
+
+  privateProfile PrivateProfile @relation(fields: [privateProfileId], references: [id], onDelete: Cascade)
+}
+
+model Parent {
+  id         String  @id @default(cuid())
+  userId     String
+  /// "father" | "mother"
+  role       String
+  name       String?
+  occupation String?
+  /// Private — gated by PrivateProfile.showParentContacts.
+  phone      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+model Sibling {
+  id            String  @id @default(cuid())
+  userId        String
+  name          String?
+  gender        String?
+  maritalStatus String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Verification documents — divorce decrees and the like. Never public, no exceptions:
+/// there is deliberately no `isPublic` flag to set. Only the member and a reviewing
+/// admin may read one, and every read should be written to AuditLog.
+model ProfileDocument {
+  id         String    @id @default(cuid())
+  userId     String
+  /// "divorce_decree" | "id_proof" | "horoscope"
+  kind       String
+  fileName   String
+  /// Private object-store key, not a public URL.
+  storageKey String
+  verifiedAt DateTime?
+  verifiedBy String?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Admin-editable religion -> caste -> subcaste taxonomy. Supersedes the seed JSON in
+/// src/data/taxonomy/ once rows exist; see that folder's README for the sourcing rules
+/// that apply before anything is inserted here.
+model CasteTaxonomy {
+  id        String  @id @default(cuid())
+  /// "religion" | "caste" | "subcaste" | "kulam"
+  level     String
+  /// Stable slug referenced by User.religionId / casteId / subcasteId / kulamId.
+  slug      String
+  label     String
+  tamil     String?
+  parentId  String?
+  /// Set to "kongu" on the Kongu Vellalar Gounder caste row to enable the kulam field.
+  module    String?
+  /// False until a domain reviewer has signed the entry off.
+  verified  Boolean @default(false)
+  source    String?
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   CasteTaxonomy?  @relation("TaxonomyTree", fields: [parentId], references: [id])
+  children CasteTaxonomy[] @relation("TaxonomyTree")
+
+  @@unique([level, slug, parentId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?
+  userAgent    String?
+  ip           String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Device {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String?
+  type      String?
+  browser   String?
+  os        String?
+  ip        String?
+  location  String?
+  trusted   Boolean  @default(false)
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OTP {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  type      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  userId      String
+  points      Int
+  type        String
+  description String?
+  claimed     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String
+  plan      String
+  status    String
+  amount    Float
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  adminId   String?
+  ip        String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+/// Admin panel employee (HR/RBAC), distinct from User and from Vendor/Dealer logins.
+/// `employeeCode` is the human-readable id shown in the UI (e.g. "E001"); generated
+/// server-side on creation the same way Vendor.vendorId is, off `sequenceNo`.
+model Employee {
+  id           String       @id @default(cuid())
+  sequenceNo   Int          @unique @default(autoincrement())
+  employeeCode String       @unique
+  name         String
+  email        String       @unique
+  password     String
+  role         EmployeeRole
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  complaintsHandled    VendorComplaint[]
+  editRequestsResolved DealerEditRequest[]
+}
+
+/// Dealers register members on the platform's behalf (see User.dealerId) and earn
+/// commission on those members' payments (see Payment.dealerId). Dealers do not get
+/// a self-service login in this scheme — profile corrections go through
+/// DealerEditRequest instead (see Task 7's Dealer Management role).
+model Dealer {
+  id            String   @id @default(cuid())
+  sequenceNo    Int      @unique @default(autoincrement())
+  dealerCode    String   @unique
+  name          String
+  email         String   @unique
+  phone         String?
+  city          String?
+  commissionPct Float    @default(8)
+  status        String   @default("active")
+  verified      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users        User[]
+  payments     Payment[]
+  editRequests DealerEditRequest[]
+}
+
+/// Service-provider account. `vendorId` is the permanent, human-readable id
+/// ("V001CS") generated once at creation from `sequenceNo` + the 2-letter service
+/// code for `category` — see server/lib/vendorId.js. Never reassigned or reused,
+/// even if the vendor is deactivated (status flips to "inactive"; the row stays).
+model Vendor {
+  id            String   @id @default(cuid())
+  sequenceNo    Int      @unique @default(autoincrement())
+  vendorId      String   @unique
+  name          String
+  category      String
+  serviceCode   String
+  email         String   @unique
+  password      String
+  phone         String?
+  city          String?
+  /// "standard" | "elite" | "shared" — matches the legacy admin mock's vendor tiers.
+  tier          String   @default("standard")
+  status        String   @default("active")
+  verified      Boolean  @default(false)
+  commissionPct Float    @default(10)
+  price         String?
+  gst           String?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bookings   Booking[]
+  payments   Payment[]
+  ratings    VendorRating[]
+  enquiries  Enquiry[]
+  complaints VendorComplaint[]
+}
+
+/// A user's payment — either a MEMBERSHIP tier purchase (tierAtPayment is set) or a
+/// VENDOR_BOOKING payment to a vendor (vendorId is set). dealerId is set whenever the
+/// paying user was registered via a dealer, so dealer revenue can be attributed
+/// without re-deriving it from User.dealerId on every query.
+///
+/// `userId` is nullable because a Razorpay order (and this row) is created against a
+/// `RegistrationDraft` *before* any `User` exists — see the webhook in
+/// server/routes/payments.js, which is the only place a self-registered `User` gets
+/// created. `payerName`/`payerEmail` are snapshotted from the draft so the admin
+/// Payments screen still shows who a pending/failed pre-signup row belongs to.
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String?
+  dealerId          String?
+  vendorId          String?
+  bookingId         String?
+  draftId           String?
+  amount            Float
+  /// Unknown until Razorpay reports it at capture time — null for a still-PENDING
+  /// order created ahead of checkout.
+  method            PaymentMethod?
+  status            PaymentStatus @default(PENDING)
+  type              PaymentType   @default(MEMBERSHIP)
+  /// Snapshot of the member's plan at the moment of payment — set for MEMBERSHIP
+  /// payments. Deliberately not derived from the live User.plan, which can change
+  /// after this payment (upgrades/downgrades) and would silently rewrite history.
+  tierAtPayment     PlanTier?
+  payerName         String?
+  payerEmail        String?
+  /// Razorpay order id — set at order-creation time, before payment. Unique so the
+  /// webhook can upsert idempotently against redelivery.
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  razorpaySignature String?
+  createdAt         DateTime      @default(now())
+
+  user    User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dealer  Dealer?            @relation(fields: [dealerId], references: [id])
+  vendor  Vendor?            @relation(fields: [vendorId], references: [id])
+  booking Booking?           @relation(fields: [bookingId], references: [id])
+  draft   RegistrationDraft? @relation(fields: [draftId], references: [id])
+}
+
+/// A registration-in-progress that has not yet become a `User`. The public registration
+/// wizard (src/pages/register/) saves Step 1-4 data here as the member fills it in, keyed
+/// by `draftToken` (opaque, given to the client, stored in its localStorage) so a refresh
+/// resumes exactly where they left off. A `User` row is only ever created from a draft by
+/// the Razorpay webhook (server/routes/payments.js) once payment is confirmed — see that
+/// file for why no account exists before payment clears.
+model RegistrationDraft {
+  id           String    @id @default(cuid())
+  draftToken   String    @unique
+  /// Merged step 1-4 field data, including the photo as a base64 data URL. Shape mirrors
+  /// src/pages/register/registrationSchema.ts's RegisterFormValues.
+  payload      Json      @default("{}")
+  currentStep  Int       @default(0)
+  email        String?
+  selectedPlan PlanTier?
+  /// "in_progress" | "paid" | "expired"
+  status       String    @default("in_progress")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  expiresAt    DateTime
+
+  payments Payment[]
+}
+
+/// A vendor-service booking made through the platform, e.g. after a match is
+/// confirmed (see admin "Post-Match Services"). Cancellation attribution
+/// (cancelledBy/cancelReason) is only meaningful once status = CANCELLED.
+model Booking {
+  id            String        @id @default(cuid())
+  userId        String
+  vendorId      String
+  serviceType   String
+  status        BookingStatus @default(PENDING)
+  scheduledDate DateTime?
+  cancelledBy   CancelledBy?
+  cancelReason  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor   Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  payments Payment[]
+  rating   VendorRating?
+}
+
+/// One rating per completed booking. `vendorId`/`userId` are denormalised off the
+/// booking for cheap "average rating per vendor" queries without a join through
+/// Booking every time.
+model VendorRating {
+  id        String   @id @default(cuid())
+  vendorId  String
+  userId    String
+  bookingId String   @unique
+  rating    Int
+  review    String?
+  createdAt DateTime @default(now())
+
+  vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+/// Site-wide enquiry funnel. `vendorId` set = a vendor-directed enquiry; null = a
+/// general platform enquiry. `status` moves OPEN -> CONVERTED once it results in a
+/// confirmed Booking/Match, or -> CLOSED otherwise — see admin "Enquiries Funnel"
+/// conversion-rate calculation.
+model Enquiry {
+  id        String        @id @default(cuid())
+  userId    String?
+  vendorId  String?
+  message   String?
+  status    EnquiryStatus @default(OPEN)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  vendor Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+}
+
+/// Dealers can't self-edit a registered member's profile, so corrections go through
+/// this request/resolution log instead (handled by the Dealer Management employee
+/// role — Task 7). `resolvedById` is the audit trail for who closed it.
+model DealerEditRequest {
+  id           String    @id @default(cuid())
+  dealerId     String
+  targetUserId String?
+  description  String
+  status       String    @default("open")
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  dealer     Dealer    @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  resolvedBy Employee? @relation(fields: [resolvedById], references: [id])
+}
+
+/// Logged miscommunication between a user and a vendor (service, response time, or
+/// enquiry disputes), handled by the Vendor Management employee role (Task 7).
+/// `contactLog` records the 1:1 contact made with the vendor to resolve it.
+model VendorComplaint {
+  id          String    @id @default(cuid())
+  vendorId    String
+  userId      String?
+  description String
+  contactLog  String?
+  status      String    @default("open")
+  handledById String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  vendor    Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  handledBy Employee? @relation(fields: [handledById], references: [id])
+}

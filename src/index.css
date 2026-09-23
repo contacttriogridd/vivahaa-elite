@@ -1,0 +1,46 @@
+/* Fonts are loaded once, in index.html's <link> (better for the browser's
+   preconnect), not duplicated here. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #D4AF3755; border-radius: 3px; }
+  ::selection { background: #D4AF3744; color: #7B1E2B; }
+
+  /* A <select>'s dropdown popup is rendered by the OS/browser chrome, not by our
+     page — on Windows especially, it shows on a plain light system background no
+     matter what the <select> itself is styled with. Any of our pale/gold text colors
+     (meant for dark panels) become washed-out and barely legible there, so option
+     text is pinned to a plain dark color, always, regardless of surrounding theme. */
+  option { color: #1A1A1A; background-color: #FFFFFF; }
+}
+
+@layer components {
+  .glass-card { background: rgba(255, 248, 240, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 1rem; box-shadow: 0 8px 32px rgba(0,0,0,0.08); }
+  .glass-card-dark { background: rgba(11, 10, 9, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(217, 178, 76, 0.15); border-radius: 1rem; }
+  .gold-gradient { background: linear-gradient(135deg, #D4AF37 0%, #F0D68A 50%, #D4AF37 100%); }
+  .gold-text { color: #D4AF37; }
+  .maroon-text { color: #7B1E2B; }
+  .premium-shadow { box-shadow: 0 4px 24px rgba(212, 175, 55, 0.15); }
+  .input-premium { border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 0.75rem; transition: all 0.3s ease; }
+  .input-premium:focus { border-color: #D4AF37; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15); outline: none; }
+
+  /* Admin panel's component library (src/admin/ui.jsx) sets outline:none on inputs
+     and relies on framer-motion hover/tap for buttons, leaving no visible keyboard
+     focus indicator anywhere — this restores one, scoped to .admin-root so it never
+     touches the member-facing site's own focus styling. Uses ADMIN.focus's hex
+     directly since CSS here can't read the JS token object. */
+  .admin-root button:focus-visible,
+  .admin-root input:focus-visible,
+  .admin-root select:focus-visible,
+  .admin-root [tabindex]:focus-visible {
+    outline: 2px solid #E8C878;
+    outline-offset: 2px;
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "subject": "Religion -> Caste -> Subcaste taxonomy for the registration form",
+    "verified": false,
+    "reviewRequired": true,
+    "reviewNote": "PARTIAL SEED — NOT PRODUCTION DATA. Only the `religions` level is complete. The caste level carries a deliberately narrow, attested starter set; the subcaste level is almost entirely empty by design. Nothing in this file was generated from an LLM's recollection. Completing this taxonomy is a separate, explicitly flagged task — see ./README.md. Until `verified` is true, every combobox backed by this file also accepts free-text entry so that users are never blocked by a missing option.",
+    "seededOn": "2026-09-09",
+    "scope": "Tamil Nadu / Kongu belt first, matching the platform's current service cities (Coimbatore, Tirupur, Erode, Namakkal, Salem, Dindigul).",
+    "sources": [
+      {
+        "id": "tn-bc-mbc-list",
+        "label": "Tamil Nadu Dept. of Backward Classes, Most Backward Classes and Minorities Welfare — approved BC/MBC/DNC lists",
+        "url": "https://www.bcmbcmw.tn.gov.in/bclist.htm",
+        "alsoAt": "https://tn.data.gov.in/catalog/list-backward-classesbc-most-backward-classesmbc-and-denotified-communitiesdnc-tamil-nadu",
+        "kind": "government publication",
+        "note": "Authoritative for community NAMES. It is a flat administrative list: it is NOT organised by religion and carries no subcaste hierarchy, so the religion grouping below is an editorial mapping and must be reviewed. The full list (~370 entries) has not been transcribed; only entries confirmed during seeding are present."
+      }
+    ],
+    "unresolved": [
+      "The full TN BC/MBC/DNC list has not been transcribed — the source PDF was not machine-readable during seeding. Transcribe it from the official page before launch.",
+      "Assignment of each community to a religion is editorial and needs review; several communities span more than one religion.",
+      "Subcaste lists are empty for every caste except where a separately sourced list exists. Do not populate them from memory.",
+      "Non-Hindu religion branches carry no caste seed at all and currently fall back to free-text entry."
+    ]
+  },
+  "religions": [
+    {
+      "id": "hindu",
+      "label": "Hindu",
+      "castes": [
+        { "id": "agamudayar", "label": "Agamudayar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "arayar", "label": "Arayar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "ayira-vaisyar", "label": "Ayira Vaisyar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "badagar", "label": "Badagar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "billava", "label": "Billava", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "boyas", "label": "Boyas", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "chakkala", "label": "Chakkala", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "chettiar", "label": "Chettiar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "devangar", "label": "Devangar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "gounder", "label": "Gounder", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "hegde", "label": "Hegde", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "illathu-pillaimar", "label": "Illathu Pillaimar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "jogis", "label": "Jogis", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "kallar", "label": "Kallar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        {
+          "id": "kongu-vellalar-gounder",
+          "label": "Kongu Vellalar Gounder",
+          "attestedBy": ["tn-bc-mbc-list"],
+          "subcastes": [],
+          "kulamModule": "kongu",
+          "note": "Gated to the Kulam / Koottam selector — see src/data/taxonomy/konguKulams.json and src/pages/register/KonguKulamField.tsx. The `kulamModule` key is what the form gates on; do not rename it without updating that component."
+        },
+        { "id": "lingayat", "label": "Lingayat", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "malayar", "label": "Malayar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "maravar", "label": "Maravar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "muthuraja", "label": "Muthuraja", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "nadar", "label": "Nadar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "naikkar", "label": "Naikkar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] }
+      ]
+    },
+    { "id": "christian", "label": "Christian", "castes": [] },
+    {
+      "id": "muslim",
+      "label": "Muslim",
+      "castes": [
+        { "id": "ansar", "label": "Ansar", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "dudekula", "label": "Dudekula", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] },
+        { "id": "labbai", "label": "Labbai", "attestedBy": ["tn-bc-mbc-list"], "subcastes": [] }
+      ]
+    },
+    { "id": "sikh", "label": "Sikh", "castes": [] },
+    { "id": "jain", "label": "Jain", "castes": [] },
+    { "id": "buddhist", "label": "Buddhist", "castes": [] },
+    { "id": "parsi", "label": "Parsi", "castes": [] },
+    { "id": "inter-religion", "label": "Inter-religion / No preference", "castes": [], "skipsCaste": true },
+    { "id": "other", "label": "Other", "castes": [] }
+  ]
+}
