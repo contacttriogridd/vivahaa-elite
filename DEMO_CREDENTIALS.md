@@ -1,12 +1,14 @@
 # Demo / test credentials
 
-Dev and QA only — none of this is real user data. The two email/password pairs below
-are already hardcoded in `src/pages/PremiumLogin.tsx`'s "Admin Demo" / "User Demo"
-buttons (dev-only, gated behind `import.meta.env.DEV`), so this file doesn't expose
-anything that wasn't already visible in the committed source — it just makes it easy
-to find without reading the component.
+Dev and QA only — none of this is real user data.
 
-## Real database accounts (email/password login)
+**All accounts below sign in through the one "Sign In" form** (the "Welcome Back"
+page) — there is no longer a separate admin/vendor/dealer login page. `POST
+/api/auth/login` tries the member, employee, and vendor tables in turn and routes
+you to the right dashboard based on which one matched. Dealers don't have a
+self-service login at all (see "Dealers — no login" below).
+
+## Member accounts (email/password login)
 
 | Button / label | Email | Password | Tier | Notes |
 |---|---|---|---|---|
@@ -19,10 +21,11 @@ profile view.
 
 ## Admin panel — Employee accounts (real, RBAC-enforced)
 
-The admin panel (`/admin` after signing in at the footer's "Admin sign-in" link) is
-backed by its own `Employee` model and JWT session — separate from the member
-`User` auth above. Seeded by `npm run db:seed` (via `prisma/seedAdminDemo.js`), one
-account per role:
+Sign in with any of these through the same main form — the response tells the app
+it's an employee login and it lands you on the Admin Portal instead of the member
+dashboard. Backed by its own `Employee` model and JWT session, separate from the
+member `User` auth above. Seeded by `npm run db:seed` (via `prisma/seedAdminDemo.js`),
+one account per role:
 
 | Role | Email | Password |
 |---|---|---|
@@ -42,8 +45,8 @@ ratings, and enquiries — see `prisma/seedAdminDemo.js` for the full list.
 
 ## Vendor partner portal (real, own-data-only)
 
-Separate login again (footer's "Vendor sign-in" link), backed by the same `Vendor`
-rows the admin Vendor Management section manages. A vendor can only ever see its own
+Same main sign-in form again, backed by the same `Vendor` rows the admin Vendor
+Management section manages. A vendor can only ever see its own
 bookings/ratings/cancellations:
 
 - `vendor@vivahaaelite.demo` / `Vendor@123` (Photography, `V001PH`)
@@ -52,22 +55,21 @@ bookings/ratings/cancellations:
 - `makeup1@vivahaaelite.demo` / `Vendor@123` (Makeup, `V004MU` — has a cancelled booking)
 - `decor1@vivahaaelite.demo` / `Vendor@123` (Decor, `V005DC` — has a cancelled booking + an open complaint)
 
-## Mock shortcuts (no database involved, legacy)
+## Dealers — no login
 
-Unrelated to everything above — pure client-side mock logic in the legacy `.jsx`
-stack (`Dealer.jsx`, `Login.jsx`'s `DealerLogin`), left as-is since dealers don't get
-a self-service login in the real system (see the Dealer Management role's edit-request
-log instead):
-
-- **Dealer panel** — email `dealer@demo.com`, no password.
+Dealers do not get a self-service login (the old client-side mock `Dealer.jsx` /
+`DealerLogin` was removed when login was unified into the one form). Dealer-related
+work happens entirely on the admin side: the Dealer Management employee role
+(`dealermgr@vivahaaelite.demo` above) manages dealer records and resolves the
+edit-request log dealers submit by email/ticket.
 
 ## Running locally
 
 ```
-npm run db:seed       # bootstraps member, employee, vendor, dealer demo data
+npm run db:seed       # bootstraps member, employee, and vendor demo data
 npm run dev:backend   # http://localhost:4000
 npm run dev:frontend  # http://localhost:5173, proxies /api to the backend
 ```
 
-Sign in at `http://localhost:5173` via the "Sign In" nav link (the real,
-database-backed login), not the legacy mock login page.
+Sign in at `http://localhost:5173` via the "Sign In" nav link — the same form for
+every account type above.
