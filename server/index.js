@@ -12,6 +12,7 @@ import { dirname, join } from 'path'
 import { readFileSync } from 'fs'
 import { createAdminRouter } from './routes/admin.js'
 import { createVendorRouter } from './routes/vendor.js'
+import { signEmployeeToken, signVendorToken } from './lib/rbac.js'
 
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 
@@ -89,40 +90,66 @@ const serializeOwnProfile = (full) => {
   }
 }
 
+const serializeEmployee = ({ password, ...rest }) => rest
+const serializeVendor = ({ password, ...rest }) => rest
+const employeeCookieOpts = () => ({ httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: 8 * 3600000 })
+
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 
-// POST /api/auth/login
+// POST /api/auth/login — the single sign-in form on the site authenticates every
+// account type (member, vendor, employee/admin) through this one endpoint. Each
+// account type keeps its own table, its own password hash, and — critically — its
+// own token type/cookie/signing function exactly as before this was unified: a
+// vendor still gets a vendor-scoped JWT via signVendorToken, an employee still gets
+// one carrying their RBAC role via signEmployeeToken. Unifying only changed how
+// credentials are looked up up front; every downstream authenticateEmployee/
+// authenticateVendor/authMiddleware check (and the role gating built on top of
+// them) is untouched. Dealers are deliberately not checked here — there is no
+// real dealer account/password in this schema (see Task 7: dealer corrections go
+// through an employee-managed request log, not a dealer login).
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required' })
 
     const user = await prisma.user.findUnique({ where: { email } })
-    if (!user || !user.password) return res.status(401).json({ message: 'Invalid email or password' })
+    if (user && user.password && await bcrypt.compare(password, user.password)) {
+      if (user.status === 'suspended') return res.status(403).json({ message: 'Account is suspended' })
 
-    const valid = await bcrypt.compare(password, user.password)
-    if (!valid) return res.status(401).json({ message: 'Invalid email or password' })
+      const accessToken = generateAccessToken(user)
+      const refreshToken = generateRefreshToken(user)
+      await prisma.session.create({
+        data: { userId: user.id, token: accessToken, refreshToken, expiresAt: new Date(Date.now() + 7 * 86400000) }
+      })
 
-    if (user.status === 'suspended') return res.status(403).json({ message: 'Account is suspended' })
+      const cookieMaxAge = rememberMe ? 30 * 86400000 : 86400000
+      res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: cookieMaxAge })
+      res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: 7 * 86400000 })
 
-    const accessToken = generateAccessToken(user)
-    const refreshToken = generateRefreshToken(user)
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date(), lastActiveAt: new Date() },
+        include: { privateProfile: true },
+      })
+      return res.json({ accountType: 'member', accessToken, user: serializeOwnProfile(updated) })
+    }
 
-    await prisma.session.create({
-      data: { userId: user.id, token: accessToken, refreshToken, expiresAt: new Date(Date.now() + 7 * 86400000) }
-    })
+    const employee = await prisma.employee.findUnique({ where: { email } })
+    if (employee && employee.active && await bcrypt.compare(password, employee.password)) {
+      const accessToken = signEmployeeToken(employee)
+      res.cookie('employeeAccessToken', accessToken, employeeCookieOpts())
+      return res.json({ accountType: 'employee', accessToken, employee: serializeEmployee(employee) })
+    }
 
-    const cookieMaxAge = rememberMe ? 30 * 86400000 : 86400000
-    res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: cookieMaxAge })
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: 7 * 86400000 })
+    const vendor = await prisma.vendor.findUnique({ where: { email } })
+    if (vendor && await bcrypt.compare(password, vendor.password)) {
+      if (vendor.status !== 'active') return res.status(403).json({ message: 'Account is not active' })
+      const accessToken = signVendorToken(vendor)
+      res.cookie('vendorAccessToken', accessToken, employeeCookieOpts())
+      return res.json({ accountType: 'vendor', accessToken, vendor: serializeVendor(vendor) })
+    }
 
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date(), lastActiveAt: new Date() },
-      include: { privateProfile: true },
-    })
-
-    res.json({ accessToken, user: serializeOwnProfile(updated) })
+    return res.status(401).json({ message: 'Invalid email or password' })
   } catch (err) { res.status(500).json({ message: 'Server error' }) }
 })
 
