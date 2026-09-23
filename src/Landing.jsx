@@ -27,8 +27,18 @@ const reveal = {
   transition: { duration: 0.8, ease: EASE_OUT },
 }
 
-/** Drop a soft-focus couple/family photograph here; until then the gradient stands alone. */
-const HERO_IMAGE = '/images/hero-couple.jpg'
+/**
+ * Single, static hero ground — no rotation/crossfade (removed per request).
+ *
+ * Points at Unsplash's CDN (images.unsplash.com) — a real, verified wedding/couple
+ * photograph, free to use including commercially under Unsplash's license, hotlinked
+ * directly rather than downloaded and re-hosted. This is a reasonable stopgap, not the
+ * final answer: hotlinking means the photo is outside this project's control (could
+ * change or 404 if ever taken down) and isn't run through this site's own CDN/caching.
+ * Swap it for a file under /public/images/ once real branded photography exists —
+ * nothing else here needs to change to do that.
+ */
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1722952934708-749c22eb2e58?auto=format&fit=crop&w=1600&q=75'
 
 function Label({ children, className = '' }) {
   return (
