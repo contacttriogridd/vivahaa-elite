@@ -1,24 +1,20 @@
 import React, { useEffect, useState } from 'react'
-import { state } from './data'
 import { NavBar } from './components'
 import Landing from './Landing'
 import Register from './pages/register'
-import { AdminLogin, DealerLogin } from './Login'
 import AdminPortal from './admin/AdminPortal'
-import Dealer from './Dealer'
 import Dashboard from './pages/Dashboard.tsx'
 import PremiumLogin from './pages/PremiumLogin.tsx'
 import { useAuth } from './contexts/AuthContext'
 import { adminApi, vendorApi } from './admin/apiClient.js'
-import VendorLogin from './vendor/VendorLogin.jsx'
 import VendorPortal from './vendor/VendorPortal.jsx'
+import API from './lib/api'
 
 export default function App() {
   const [page, setPage] = useState('landing')
-  const [currentDealer, setCurrentDealer] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   // Real signed-in employee (RBAC role, employeeCode, etc.), sourced from
-  // /api/admin/me — not the mock data.js state, same principle as `user` below.
+  // /api/admin/me — not mock data, same principle as `user` below.
   const [employee, setEmployee] = useState<any>(null)
   // Real signed-in vendor (own bookings/ratings only), sourced from /api/vendor/me —
   // same pattern as `employee` above, deliberately separate state and token.
@@ -50,31 +46,52 @@ export default function App() {
   // mock data.js state. This is what "live auth end-to-end" (Phase 3) means: the
   // dashboard and nav both reflect whoever the backend says is logged in, not a
   // locally-held object nothing else writes to.
-  const { user, logout: authLogout } = useAuth()
+  const { user, setUser, logout: authLogout } = useAuth()
 
-  // PremiumLogin.tsx never navigates on success — it only sets AuthContext's user.
-  // This is the single place that decides "where do we go once someone is signed
-  // in," rather than duplicating that decision inside the login component itself.
-  // Scoped to 'premium-login' only (not 'landing') — an earlier version also
-  // redirected from landing, which raced against logout: setPage('landing') ran
-  // synchronously while the async authLogout() was still clearing `user`, so this
-  // effect fired on the stale truthy user and bounced straight back to dashboard.
+  // PremiumLogin.tsx never navigates on success for a member login — it only sets
+  // AuthContext's user (via handleUnifiedLogin below). This is the single place
+  // that decides "where do we go once someone is signed in," rather than
+  // duplicating that decision inside the login component itself. Scoped to
+  // 'premium-login' only (not 'landing') — an earlier version also redirected from
+  // landing, which raced against logout: setPage('landing') ran synchronously
+  // while the async authLogout() was still clearing `user`, so this effect fired
+  // on the stale truthy user and bounced straight back to dashboard.
   useEffect(() => {
     if (user && page === 'premium-login') setPage('dashboard')
   }, [user, page])
 
-  const dealerLogin = (dealer: any) => { state.currentDealer = dealer; setCurrentDealer(dealer) }
-  const adminLogin = (emp: any) => { state.isAdmin = true; setEmployee(emp); setIsAdmin(true) }
+  // The single sign-in form (PremiumLogin's "Welcome Back" form) authenticates
+  // every account type through this one function, which posts to the unified
+  // POST /api/auth/login. The backend already tries member/employee/vendor tables
+  // in turn and returns {accountType, ...}; this is only where the *frontend*
+  // routes that result to the right slice of state — member/employee/vendor
+  // sessions stay deliberately separate (own token, own cookie, own React state)
+  // rather than merged into one blob, so the existing RBAC/isolation guarantees
+  // are untouched. Dealers are not handled here — see Login.jsx's removal note.
+  const handleUnifiedLogin = async (email: string, password: string, rememberMe?: boolean) => {
+    const { data } = await API.post('/auth/login', { email, password, rememberMe })
+    if (data.accountType === 'employee') {
+      localStorage.setItem('employeeAccessToken', data.accessToken)
+      setEmployee(data.employee)
+      setIsAdmin(true)
+    } else if (data.accountType === 'vendor') {
+      localStorage.setItem('vendorAccessToken', data.accessToken)
+      setVendor(data.vendor)
+    } else {
+      localStorage.setItem('accessToken', data.accessToken)
+      setUser(data.user)
+    }
+    return data
+  }
+
   const logout = async () => {
     // Awaited so `user` is already cleared before we navigate — see the note above.
     await authLogout()
-    state.currentDealer = null; state.isAdmin = false
-    setCurrentDealer(null); setIsAdmin(false); setPage('landing')
+    setPage('landing')
   }
   const adminLogout = async () => {
     try { await adminApi.post('/admin/logout') } catch { /* token may already be expired */ }
     localStorage.removeItem('employeeAccessToken')
-    state.isAdmin = false
     setEmployee(null); setIsAdmin(false); setPage('landing')
   }
 
@@ -88,24 +105,20 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
-      case 'landing':      return <Landing setPage={setPage} />
+      case 'landing':       return <Landing setPage={setPage} />
       // Registration no longer auto-logs the member in — the account is only created
       // once Razorpay's webhook confirms payment (server/routes/payments.js), so
       // there's no session to land in a dashboard with yet. Send them to sign in.
-      case 'register':     return <Register onSuccess={() => setPage('premium-login')} />
-      case 'premium-login': return <PremiumLogin />
-      case 'admin-login':  return <AdminLogin setPage={setPage} onAdminLogin={adminLogin} />
-      case 'dealer-login': return <DealerLogin setPage={setPage} onDealerLogin={dealerLogin} />
-      case 'vendor-login': return <VendorLogin onVendorLogin={setVendor} />
-      case 'dealer':       return currentDealer ? <Dealer dealer={currentDealer} refresh={refresh} /> : <DealerLogin setPage={setPage} onDealerLogin={dealerLogin} />
-      case 'dashboard':    return user ? <Dashboard /> : <PremiumLogin />
-      default:             return <Landing setPage={setPage} />
+      case 'register':      return <Register onSuccess={() => setPage('premium-login')} />
+      case 'premium-login': return <PremiumLogin onLogin={handleUnifiedLogin} />
+      case 'dashboard':     return user ? <Dashboard /> : <PremiumLogin onLogin={handleUnifiedLogin} />
+      default:              return <Landing setPage={setPage} />
     }
   }
 
   return (
     <>
-      <NavBar page={page} setPage={setPage} currentUser={user} currentDealer={currentDealer} isAdmin={isAdmin} onLogout={logout} />
+      <NavBar page={page} setPage={setPage} currentUser={user} isAdmin={isAdmin} onLogout={logout} />
       {renderPage()}
     </>
   )

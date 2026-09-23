@@ -88,9 +88,18 @@ function getGreetingLabel() {
   return 'night'
 }
 
-export default function PremiumLogin() {
+interface PremiumLoginProps {
+  // Authenticates member, vendor, and employee/admin accounts alike through the
+  // single unified POST /api/auth/login — see App.tsx's handleUnifiedLogin for
+  // where the returned accountType gets routed to the right app state. Passed in
+  // (rather than pulled from useAuth) because a successful vendor/employee login
+  // needs to reach state that lives in App.tsx, not AuthContext.
+  onLogin: (email: string, password: string, rememberMe?: boolean) => Promise<{ accountType: 'member' | 'employee' | 'vendor' }>
+}
+
+export default function PremiumLogin({ onLogin }: PremiumLoginProps) {
   const { t } = useTranslation()
-  const { login, loginWithGoogle, loading: authLoading } = useAuth()
+  const { loginWithGoogle, loading: authLoading } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [bgIndex, setBgIndex] = useState(0)
   const [showPassword, setShowPassword] = useState(false)
@@ -151,11 +160,20 @@ export default function PremiumLogin() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true); setError(''); setSuccessMessage('')
     try {
-      await login(data.email, data.password, data.rememberMe)
-      setLoginSuccess(true)
-      setShowConfetti(true)
-      setTimeout(() => setShowConfetti(false), 5000)
+      const result = await onLogin(data.email, data.password, data.rememberMe)
+      // Only members get this page's own "welcome back" screen — a vendor/employee
+      // login instead triggers App.tsx to swap the whole view to their dashboard
+      // on the next render (isAdmin/vendor state change), which this component
+      // won't be mounted to see.
+      if (result.accountType === 'member') {
+        setLoginSuccess(true)
+        setShowConfetti(true)
+        setTimeout(() => setShowConfetti(false), 5000)
+      }
     } catch (err: any) {
+      // Deliberately the same generic message regardless of which account type
+      // the email would have matched — don't reveal what kind of account exists
+      // for a given address.
       setError(err.response?.data?.message || t('login.invalidCredentials'))
     } finally { setIsLoading(false) }
   }
@@ -170,7 +188,7 @@ export default function PremiumLogin() {
     try {
       const demoEmail = role === 'admin' ? 'admin@vivahaaelite.demo' : 'demo@vivahaaelite.demo'
       const demoPassword = role === 'admin' ? 'Admin@123' : 'Demo@123'
-      await login(demoEmail, demoPassword, true)
+      await onLogin(demoEmail, demoPassword, true)
       setLoginSuccess(true)
       setShowConfetti(true)
       setTimeout(() => setShowConfetti(false), 5000)
