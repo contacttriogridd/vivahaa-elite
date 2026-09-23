@@ -110,7 +110,7 @@ export function Badge({ children, color = '#C6982F', bg }) {
 }
 
 // Top nav bar
-export function NavBar({ page, setPage, currentUser, currentDealer, isAdmin, onLogout }) {
+export function NavBar({ page, setPage, currentUser, isAdmin, onLogout }) {
   const tier = currentUser?.tier || 'standard'
   const t = tk(tier)
   const bg = tier === 'elite' ? ELITE.panel : STD.bg
@@ -127,7 +127,7 @@ export function NavBar({ page, setPage, currentUser, currentDealer, isAdmin, onL
         Vivahaa Elite
       </span>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {!currentUser && !currentDealer && !isAdmin && (
+        {!currentUser && !isAdmin && (
           <>
             <Btn tier="standard" variant="ghost" onClick={() => setPage('landing')} style={{ padding: '6px 14px' }}>Home</Btn>
             <Btn tier="standard" variant="primary" onClick={() => setPage('register')} style={{ padding: '6px 14px' }}>Register</Btn>
@@ -138,12 +138,6 @@ export function NavBar({ page, setPage, currentUser, currentDealer, isAdmin, onL
           <>
             <Btn tier={tier} variant="ghost" onClick={() => setPage('dashboard')} style={{ padding: '6px 14px' }}>Dashboard</Btn>
             <Btn tier={tier} variant="ghost" onClick={onLogout} style={{ padding: '6px 14px' }}>Sign Out</Btn>
-          </>
-        )}
-        {currentDealer && (
-          <>
-            <Btn tier="standard" variant="ghost" onClick={() => setPage('dealer')} style={{ padding: '6px 14px' }}>Dealer Portal</Btn>
-            <Btn tier="standard" variant="ghost" onClick={onLogout} style={{ padding: '6px 14px' }}>Sign Out</Btn>
           </>
         )}
         {isAdmin && (
