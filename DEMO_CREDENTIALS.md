@@ -120,6 +120,27 @@ Dealer dashboard tools:
   Notification + best-effort email (`server/lib/mailer.js`, logs to console when SMTP
   isn't configured, as in local dev).
 
+## Extended background data (client-walkthrough realism)
+
+Run `npm run db:seed:extended` (after `npm run db:seed`) to top up the dataset with
+~80 fictitious members, ~29 vendors, a 3rd dealer, and 4 more employees — purely
+volume so lists, dashboards, and match results look like a live system instead of a
+handful of records. Logic lives in `prisma/seedDemoExtended.js`, idempotent like
+every other seed file here (safe to re-run). **Not** wired into `npm run db:seed` or
+`vercel-build` — it's a deliberate one-off, run only when you want the richer look.
+
+The **primary accounts above are still the ones to log in with** for a walkthrough —
+this section only adds background data so those primary accounts have real activity
+to show (Arjun/Divya/Ravi/Shalini each now have 4 mutual matches with real chat
+history, a full liked/viewed/passed history, and varied AI best-match results;
+`catering1` now shows ₹2.1L+ earnings across 5 completed/3 ongoing/3 rejected/1
+Under Valuation; `dealer1` now has 20 onboarded members with a genuine mix of
+paid/unpaid/inactive for the reminder tool to act on). None of the ~80 background
+members, ~29 vendors, `dealer3@vivahaaelite.demo`, or `hr2/usermgr2/vendormgr2/
+dealermgr2@vivahaaelite.demo` (all password `Member@123` / `Vendor@123` /
+`Employee@123` respectively) are meant to be logged into for a demo — they exist so
+the *primary* accounts' lists, filters, and dashboards have real volume around them.
+
 ## Running locally
 
 ```

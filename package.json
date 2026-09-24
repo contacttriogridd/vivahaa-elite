@@ -14,6 +14,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
+    "db:seed:extended": "node prisma/seedDemoExtended.js",
     "lint": "echo 'Lint passed'",
     "typecheck": "tsc --noEmit --skipLibCheck"
   },
