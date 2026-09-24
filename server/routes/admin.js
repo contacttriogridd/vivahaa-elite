@@ -66,9 +66,11 @@ export function createAdminRouter(prisma) {
   })
 
   // POST /api/admin/_fix-florist-demo — TEMPORARY, remove after use. rbacflorist@
-  // was leftover RBAC-testing data from an earlier session with a password that was
-  // never actually Vendor@123, despite DEMO_CREDENTIALS.md documenting it as such —
-  // caught live when the client tried to sign in with it. Same secret-gated,
+  // was assumed to be leftover RBAC-testing data that just had the wrong password —
+  // turned out it never existed on production at all (only ever created against
+  // local dev in an earlier session), so DEMO_CREDENTIALS.md was documenting an
+  // account production never had. Creates it if missing, resets its password if it
+  // does exist, so this is safe to re-run either way. Same secret-gated,
   // remove-after-use pattern as every other production one-off in this project's
   // history. Not the seedCore/seedDemoExtended scripts since this is a narrow,
   // one-row fix, not a re-seed.
@@ -78,10 +80,18 @@ export function createAdminRouter(prisma) {
     }
     try {
       const hashed = await bcrypt.hash('Vendor@123', 12)
-      const vendor = await prisma.vendor.update({
-        where: { email: 'rbacflorist@vivahaaelite.demo' },
-        data: { password: hashed, name: 'Petal Paradise Florists', city: 'Erode', tier: 'standard', status: 'active', verified: true, price: '₹8,000 onwards' },
-      })
+      let vendor = await prisma.vendor.findUnique({ where: { email: 'rbacflorist@vivahaaelite.demo' } })
+      if (vendor) {
+        vendor = await prisma.vendor.update({
+          where: { email: 'rbacflorist@vivahaaelite.demo' },
+          data: { password: hashed, name: 'Petal Paradise Florists', city: 'Erode', tier: 'standard', status: 'active', verified: true, price: '₹8,000 onwards' },
+        })
+      } else {
+        vendor = await createVendorWithId(prisma, {
+          name: 'Petal Paradise Florists', category: 'Florist', email: 'rbacflorist@vivahaaelite.demo',
+          password: hashed, city: 'Erode', tier: 'standard', verified: true, price: '₹8,000 onwards', commissionPct: 10,
+        })
+      }
       res.json({ message: 'Fixed', vendorId: vendor.vendorId, email: vendor.email })
     } catch (err) {
       res.status(500).json({ message: err.message })
