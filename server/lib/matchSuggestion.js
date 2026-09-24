@@ -2,7 +2,7 @@
 // match suggestion" column and the User Management role's curated-match action.
 // Deliberately simple (attribute overlap, not the full browse/search ranking) —
 // good enough for an admin's shortlist, not a replacement for member-facing search.
-const opposite = (gender) => (gender === 'Male' ? 'Female' : gender === 'Female' ? 'Male' : undefined)
+import { oppositeGender as opposite } from './gender.js'
 
 function score(user, candidate) {
   let s = 0

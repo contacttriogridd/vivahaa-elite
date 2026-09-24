@@ -16,6 +16,10 @@ import { createDealerRouter } from './routes/dealer.js'
 import { signEmployeeToken, signVendorToken, signDealerToken } from './lib/rbac.js'
 import { createRegistrationRouter } from './routes/registration.js'
 import { createPaymentsRouter } from './routes/payments.js'
+import { oppositeGender } from './lib/gender.js'
+import { isElitePlanTier } from './lib/plans.js'
+import { MONTHLY_EDIT_LIMIT, editsUsedThisMonth, diffEditableFields } from './lib/profileEditLimit.js'
+import { AI_MATCH_DISCLAIMER, computeBestMatches, compatibilityScore } from './lib/horoscopeCompatibility.js'
 
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 
@@ -535,6 +539,13 @@ const serializeProfileCard = (u, distanceKm) => ({
   foodPreference: u.foodPreference,
   nakshatra: u.nakshatra,
   rashi: u.rashi,
+  // Elite advanced-filter results fields (Panel 3.2) — harmless to include for a
+  // Standard member's card too, since these aren't private/gated data, just fields
+  // a Standard search never filters on.
+  incomeBracket: u.incomeBracket,
+  familyType: u.familyType,
+  lifestyleInterests: u.lifestyleInterests,
+  hobbies: u.hobbies,
   idVerified: u.idVerified,
   photoVerified: u.photoVerified,
   videoVerified: u.videoVerified,
@@ -557,21 +568,41 @@ const serializeProfileCard = (u, distanceKm) => ({
 app.get('/api/profiles', authMiddleware, async (req, res) => {
   try {
     const {
-      gender, religionId, casteId, subcasteId, motherTongue, maritalStatus,
+      religionId, casteId, subcasteId, motherTongue, maritalStatus,
       location, radiusKm, centerLat, centerLng,
       education, occupation, foodPreference, nakshatra, rashi,
       ageMin, ageMax, hasPhoto, verifiedOnly,
+      // Elite-only advanced filters (Panel 3.2) — silently ignored below for a
+      // Standard member, not merely hidden in the UI. A `gender` query param is
+      // intentionally NOT read at all (see the hard server-side filter below).
+      incomeBracket, familyType, lifestyle, minCompatibility,
       sort = 'newest', cursor, limit,
     } = req.query
 
     const take = Math.min(parseInt(limit, 10) || 20, 50)
+    const isElite = isElitePlanTier(req.user.plan)
+
+    // MANDATORY server-side gender exclusivity (Panel 3.1/3.2): derived from the
+    // signed-in member's own gender, never from a client-supplied query param — a
+    // member with no gender on file gets zero results rather than an unfiltered
+    // list, since there is no safe default to fall back to.
+    const targetGender = oppositeGender(req.user.gender)
+    if (!targetGender) {
+      return res.json({ profiles: [], nextCursor: null, message: 'Set your gender in your profile to browse matches.' })
+    }
+
+    // Profiles this member has explicitly passed on are excluded from their own
+    // future results (see ProfilePass's doc comment in schema.prisma) — one-
+    // directional, it doesn't affect what anyone else sees.
+    const passed = await prisma.profilePass.findMany({ where: { fromUserId: req.user.id }, select: { toUserId: true } })
+    const passedIds = passed.map((p) => p.toUserId)
 
     const where = {
-      id: { not: req.user.id },
+      id: { not: req.user.id, ...(passedIds.length ? { notIn: passedIds } : {}) },
       status: 'active',
       approved: true,
+      gender: targetGender,
     }
-    if (gender) where.gender = gender
     if (religionId) where.religionId = religionId
     if (casteId) where.casteId = casteId
     if (subcasteId) where.subcasteId = subcasteId
@@ -585,6 +616,19 @@ app.get('/api/profiles', authMiddleware, async (req, res) => {
     if (hasPhoto === 'true') where.avatar = { not: null }
     if (verifiedOnly === 'true') where.idVerified = true
 
+    // Elite advanced filters — applied only when the signed-in member is actually
+    // Elite, regardless of what the client sends. A Standard member hitting this
+    // route directly with incomeBracket=... gets the exact same results as without
+    // it; the filter is dropped, not honored.
+    if (isElite && incomeBracket) where.incomeBracket = incomeBracket
+    if (isElite && familyType) where.familyType = { contains: familyType, mode: 'insensitive' }
+    if (isElite && lifestyle) {
+      where.OR = [
+        { lifestyleInterests: { contains: lifestyle, mode: 'insensitive' } },
+        { hobbies: { contains: lifestyle, mode: 'insensitive' } },
+      ]
+    }
+
     if (ageMin || ageMax) {
       where.dob = {}
       if (ageMax) where.dob.gte = dobBoundForAge(Number(ageMax) + 1)
@@ -596,6 +640,26 @@ app.get('/api/profiles', authMiddleware, async (req, res) => {
     // filter reach past that opt-in.
     if (maritalStatus) {
       where.privateProfile = { is: { maritalStatus, showMaritalStatus: true } }
+    }
+
+    // Elite-only horoscope-compatibility threshold (Panel 3.2). Can't be expressed
+    // as a Prisma where-clause (the score is computed, not stored), so — exactly
+    // like the radius-search branch below — this fetches a bounded candidate set
+    // already narrowed by every other filter, scores it in JS, and returns that
+    // directly rather than falling through to cursor pagination.
+    if (isElite && minCompatibility) {
+      const threshold = Number(minCompatibility)
+      const candidates = await prisma.user.findMany({ where, include: { privateProfile: true }, take: 300 })
+      const scored = candidates
+        .map((u) => ({ u, score: compatibilityScore(req.user, u) }))
+        .filter(({ score }) => score >= threshold)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, take)
+      return res.json({
+        profiles: scored.map(({ u, score }) => ({ ...serializeProfileCard(u), compatibilityScore: score })),
+        nextCursor: null,
+        disclaimer: AI_MATCH_DISCLAIMER,
+      })
     }
 
     if (radiusKm && centerLat && centerLng) {
@@ -641,6 +705,249 @@ app.get('/api/profiles', authMiddleware, async (req, res) => {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
   }
+})
+
+// ── Likes / Passes / Matches / Messages (Panel 3.5) ─────────────────────────────
+//
+// Like -> mutual Like -> Match -> Message is a real, working chain end to end here.
+// Earlier documentation in this project assumed this already existed at the API
+// level because the Like/Match/Message/ProfileView models were already in the
+// schema — they were, but with zero routes touching them outside one read-only
+// admin query. Everything below is new.
+
+const sortedPair = (a, b) => (a < b ? [a, b] : [b, a])
+
+// POST /api/likes/:userId — like a profile. If the other user already liked this
+// member back, this transactionally creates the Match too (both directions of Like
+// must exist for a Match — see Like's own doc comment).
+app.post('/api/likes/:userId', authMiddleware, async (req, res) => {
+  const targetId = req.params.userId
+  if (targetId === req.user.id) return res.status(400).json({ message: 'You cannot like your own profile' })
+
+  const target = await prisma.user.findUnique({ where: { id: targetId } })
+  if (!target) return res.status(404).json({ message: 'Profile not found' })
+  // Defense in depth — GET /api/profiles already never shows a same-gender card,
+  // but this endpoint is reachable directly, so the same rule is enforced here too.
+  if (oppositeGender(req.user.gender) !== target.gender) {
+    return res.status(403).json({ message: 'You can only like opposite-gender profiles' })
+  }
+
+  const existing = await prisma.like.findUnique({ where: { fromUserId_toUserId: { fromUserId: req.user.id, toUserId: targetId } } })
+  if (existing) return res.status(200).json({ message: 'Already liked', matched: false })
+
+  const reverse = await prisma.like.findUnique({ where: { fromUserId_toUserId: { fromUserId: targetId, toUserId: req.user.id } } })
+
+  let matched = false
+  await prisma.$transaction(async (tx) => {
+    await tx.like.create({ data: { fromUserId: req.user.id, toUserId: targetId } })
+    if (reverse) {
+      const [userAId, userBId] = sortedPair(req.user.id, targetId)
+      await tx.match.upsert({
+        where: { userAId_userBId: { userAId, userBId } },
+        update: {},
+        create: { userAId, userBId },
+      })
+      matched = true
+    }
+  })
+
+  res.status(201).json({ message: matched ? "It's a match!" : 'Liked', matched })
+})
+
+// GET /api/likes/sent — profiles this member has liked (Task 3.5's "liked-by-me" list).
+app.get('/api/likes/sent', authMiddleware, async (req, res) => {
+  const likes = await prisma.like.findMany({
+    where: { fromUserId: req.user.id },
+    include: { toUser: { include: { privateProfile: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
+  res.json({ profiles: likes.map((l) => ({ ...serializeProfileCard(l.toUser), likedAt: l.createdAt })) })
+})
+
+// GET /api/likes/received — profiles that have liked this member ("liked-me" list) —
+// kept as its own distinct list from /sent per Task 3.5, not merged.
+app.get('/api/likes/received', authMiddleware, async (req, res) => {
+  const likes = await prisma.like.findMany({
+    where: { toUserId: req.user.id },
+    include: { fromUser: { include: { privateProfile: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
+  res.json({ profiles: likes.map((l) => ({ ...serializeProfileCard(l.fromUser), likedAt: l.createdAt })) })
+})
+
+// POST /api/passes/:userId — explicitly pass on a profile (Task 3.5's "Rejected
+// Profiles" list). Excluded from this member's own future GET /api/profiles results.
+app.post('/api/passes/:userId', authMiddleware, async (req, res) => {
+  const targetId = req.params.userId
+  if (targetId === req.user.id) return res.status(400).json({ message: 'You cannot pass on your own profile' })
+  const target = await prisma.user.findUnique({ where: { id: targetId } })
+  if (!target) return res.status(404).json({ message: 'Profile not found' })
+
+  await prisma.profilePass.upsert({
+    where: { fromUserId_toUserId: { fromUserId: req.user.id, toUserId: targetId } },
+    update: {},
+    create: { fromUserId: req.user.id, toUserId: targetId },
+  })
+  res.status(201).json({ message: 'Passed' })
+})
+
+// GET /api/passes — profiles this member has passed on.
+app.get('/api/passes', authMiddleware, async (req, res) => {
+  const passes = await prisma.profilePass.findMany({
+    where: { fromUserId: req.user.id },
+    include: { toUser: { include: { privateProfile: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
+  res.json({ profiles: passes.map((p) => ({ ...serializeProfileCard(p.toUser), passedAt: p.createdAt })) })
+})
+
+// GET /api/matches — mutual matches (chat is only reachable through one of these —
+// see POST /api/matches/:matchId/messages below, which requires an existing Match).
+app.get('/api/matches', authMiddleware, async (req, res) => {
+  const matches = await prisma.match.findMany({
+    where: { OR: [{ userAId: req.user.id }, { userBId: req.user.id }] },
+    include: {
+      userA: { include: { privateProfile: true } },
+      userB: { include: { privateProfile: true } },
+      messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+    },
+    orderBy: { matchedAt: 'desc' },
+  })
+  res.json({
+    matches: matches.map((m) => {
+      const other = m.userAId === req.user.id ? m.userB : m.userA
+      return {
+        matchId: m.id,
+        matchedAt: m.matchedAt,
+        profile: serializeProfileCard(other),
+        lastMessage: m.messages[0] || null,
+      }
+    }),
+  })
+})
+
+const loadOwnMatch = async (matchId, userId) => {
+  const match = await prisma.match.findUnique({ where: { id: matchId } })
+  if (!match || (match.userAId !== userId && match.userBId !== userId)) return null
+  return match
+}
+
+// GET /api/matches/:matchId/messages
+app.get('/api/matches/:matchId/messages', authMiddleware, async (req, res) => {
+  const match = await loadOwnMatch(req.params.matchId, req.user.id)
+  if (!match) return res.status(404).json({ message: 'Match not found' })
+  const messages = await prisma.message.findMany({ where: { matchId: match.id }, orderBy: { createdAt: 'asc' } })
+  res.json({ messages })
+})
+
+// POST /api/matches/:matchId/messages — chat is strictly scoped to an existing
+// Match; there is no other way to message a member on this platform (Task 3.5:
+// "until mutual, no chat access").
+app.post('/api/matches/:matchId/messages', authMiddleware, async (req, res) => {
+  const { body } = req.body
+  if (!body?.trim()) return res.status(400).json({ message: 'Message body is required' })
+  const match = await loadOwnMatch(req.params.matchId, req.user.id)
+  if (!match) return res.status(404).json({ message: 'Match not found' })
+
+  const message = await prisma.message.create({
+    data: { matchId: match.id, senderId: req.user.id, body: body.trim() },
+  })
+  res.status(201).json({ message })
+})
+
+// POST /api/profiles/:userId/view — records that this member viewed a profile.
+app.post('/api/profiles/:userId/view', authMiddleware, async (req, res) => {
+  const targetId = req.params.userId
+  if (targetId === req.user.id) return res.status(204).end()
+  const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } })
+  if (!target) return res.status(404).json({ message: 'Profile not found' })
+  await prisma.profileView.create({ data: { viewerId: req.user.id, viewedUserId: targetId } })
+  res.status(201).json({ message: 'Recorded' })
+})
+
+// GET /api/profile-views/received — "who viewed my profile." Elite-only perk (see
+// the "Coming Soon" note this replaces in src/pages/Dashboard.tsx) — gated here at
+// the route level, not just hidden in the UI, exactly like every other tier gate in
+// this file.
+app.get('/api/profile-views/received', authMiddleware, async (req, res) => {
+  if (!isElitePlanTier(req.user.plan)) {
+    return res.status(403).json({ message: 'Seeing who viewed your profile is an Elite feature.' })
+  }
+  const views = await prisma.profileView.findMany({
+    where: { viewedUserId: req.user.id },
+    include: { viewer: { include: { privateProfile: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  })
+  res.json({ profiles: views.map((v) => ({ ...serializeProfileCard(v.viewer), viewedAt: v.createdAt })) })
+})
+
+// GET /api/profile-views/made — profiles this member has viewed. Available to both
+// tiers — it's this member's own browsing history, not a privileged look at someone
+// else's data.
+app.get('/api/profile-views/made', authMiddleware, async (req, res) => {
+  const views = await prisma.profileView.findMany({
+    where: { viewerId: req.user.id },
+    include: { viewedUser: { include: { privateProfile: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  })
+  res.json({ profiles: views.map((v) => ({ ...serializeProfileCard(v.viewedUser), viewedAt: v.createdAt })) })
+})
+
+// GET /api/matches/best-ai — AI-generated best-match suggestions (Task 3.5). The
+// disclaimer is returned in every response, but that alone is not compliance — the
+// frontend must render it every time these results are shown (see server/lib/
+// horoscopeCompatibility.js for why this is a heuristic, not real astrology).
+app.get('/api/matches/best-ai', authMiddleware, async (req, res) => {
+  const suggestions = await computeBestMatches(prisma, req.user, 5)
+  res.json({
+    suggestions: suggestions.map((s) => ({ ...serializeProfileCard(s), compatibilityScore: s.compatibilityScore })),
+    disclaimer: AI_MATCH_DISCLAIMER,
+  })
+})
+
+// ── Profile edit, with the monthly cap (Panel 3.4) ──────────────────────────────
+
+// GET /api/profile/edit-status — how many of this month's edits are left, for the
+// UI to show a remaining count before the member even opens the edit form.
+app.get('/api/profile/edit-status', authMiddleware, async (req, res) => {
+  const used = await editsUsedThisMonth(prisma, req.user.id)
+  res.json({ used, remaining: Math.max(0, MONTHLY_EDIT_LIMIT - used), limit: MONTHLY_EDIT_LIMIT })
+})
+
+// PATCH /api/profile — edit the member's own profile. One saved call, however many
+// allowlisted fields it changes, counts as exactly one edit against the monthly cap
+// (see EDIT_COUNTS_AS in server/lib/profileEditLimit.js) — a call that changes
+// nothing doesn't consume a credit at all.
+app.patch('/api/profile', authMiddleware, async (req, res) => {
+  const changes = diffEditableFields(req.user, req.body || {})
+  if (Object.keys(changes).length === 0) {
+    const used = await editsUsedThisMonth(prisma, req.user.id)
+    return res.json({ user: serializeOwnProfile(await prisma.user.findUnique({ where: { id: req.user.id }, include: { privateProfile: true } })), used, remaining: Math.max(0, MONTHLY_EDIT_LIMIT - used), limit: MONTHLY_EDIT_LIMIT, changed: false })
+  }
+
+  const used = await editsUsedThisMonth(prisma, req.user.id)
+  if (used >= MONTHLY_EDIT_LIMIT) {
+    return res.status(403).json({
+      message: `You've used all ${MONTHLY_EDIT_LIMIT} profile edits available this month. Limit resets on the 1st.`,
+      used, remaining: 0, limit: MONTHLY_EDIT_LIMIT,
+    })
+  }
+
+  const [updated] = await prisma.$transaction([
+    prisma.user.update({ where: { id: req.user.id }, data: changes, include: { privateProfile: true } }),
+    prisma.profileEditLog.create({ data: { userId: req.user.id } }),
+  ])
+
+  res.json({
+    user: serializeOwnProfile(updated),
+    used: used + 1,
+    remaining: Math.max(0, MONTHLY_EDIT_LIMIT - (used + 1)),
+    limit: MONTHLY_EDIT_LIMIT,
+    changed: true,
+    changedFields: Object.keys(changes),
+  })
 })
 
 // ── Taxonomy ─────────────────────────────────────────────────────────────────

@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Search, MapPin, ShieldCheck } from 'lucide-react'
+import { Search, MapPin, ShieldCheck, Heart, X, Eye } from 'lucide-react'
 import API from '../../lib/api'
 import { Input } from '../../components/ui/input'
 import { Combobox } from '../../components/ui/combobox'
 import { Button } from '../../components/ui/button'
 import { getReligions, getCastes, getSubcastes } from '../../lib/taxonomy'
 import { NAKSHATRAS, RASIS } from '../../lib/horoscope'
+import { INCOME_BRACKETS } from '../../data/incomeBrackets.js'
 import cityGeo from '../../data/taxonomy/cityGeo.json'
+import { AIMatchDisclaimer } from '../../components/dashboard/AIMatchDisclaimer'
 import type { DashboardTheme } from '../../lib/dashboardTheme'
 
 interface ProfileCard {
@@ -26,12 +28,17 @@ interface ProfileCard {
   foodPreference: string | null
   nakshatra: string | null
   rashi: string | null
+  incomeBracket?: string | null
+  familyType?: string | null
+  lifestyleInterests?: string | null
+  hobbies?: string | null
   idVerified: boolean
   photoVerified: boolean
   videoVerified: boolean
   profileCompletion: number
   maritalStatus?: string | null
   distanceKm?: number
+  compatibilityScore?: number
 }
 
 const asOptions = (values: readonly string[]) => values.map((v) => ({ id: v, label: v }))
@@ -45,7 +52,6 @@ const SORT_OPTIONS = [
 ]
 
 const emptyFilters = {
-  gender: '',
   ageMin: '',
   ageMax: '',
   religionId: '',
@@ -64,6 +70,12 @@ const emptyFilters = {
   hasPhoto: false,
   verifiedOnly: false,
   sort: 'newest',
+  // Elite-only (Task 3.2) — sent to the server regardless, but GET /api/profiles
+  // silently ignores them for a Standard member (see that route's own comment).
+  incomeBracket: '',
+  familyType: '',
+  lifestyle: '',
+  minCompatibility: '',
 }
 
 type Filters = typeof emptyFilters
@@ -84,6 +96,9 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
   const [cursor, setCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [disclaimer, setDisclaimer] = useState('')
+  const [actioned, setActioned] = useState<Record<string, 'liked' | 'passed'>>({})
+  const [viewed, setViewed] = useState<Set<string>>(new Set())
 
   const castes = filters.religionId ? getCastes(filters.religionId) : []
   const subcastes = filters.religionId && filters.casteId ? getSubcastes(filters.religionId, filters.casteId) : []
@@ -94,7 +109,6 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
 
   const buildParams = (forCursor?: string | null) => {
     const params: Record<string, string> = {}
-    if (filters.gender) params.gender = filters.gender
     if (filters.ageMin) params.ageMin = filters.ageMin
     if (filters.ageMax) params.ageMax = filters.ageMax
     if (filters.religionId) params.religionId = filters.religionId
@@ -110,6 +124,10 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
     if (filters.rashi) params.rashi = filters.rashi
     if (filters.hasPhoto) params.hasPhoto = 'true'
     if (filters.verifiedOnly) params.verifiedOnly = 'true'
+    if (filters.incomeBracket) params.incomeBracket = filters.incomeBracket
+    if (filters.familyType) params.familyType = filters.familyType
+    if (filters.lifestyle) params.lifestyle = filters.lifestyle
+    if (filters.minCompatibility) params.minCompatibility = filters.minCompatibility
     params.sort = filters.sort
 
     if (isRadiusSearch) {
@@ -131,6 +149,7 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
       const { data } = await API.get('/profiles', { params: buildParams(append ? cursor : null) })
       setProfiles((prev) => (append ? [...prev, ...data.profiles] : data.profiles))
       setCursor(data.nextCursor)
+      setDisclaimer(data.disclaimer ?? '')
     } catch {
       setError('Could not load profiles right now. Please try again.')
     } finally {
@@ -152,6 +171,24 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
     [filters]
   )
 
+  const like = async (id: string) => {
+    const { data } = await API.post(`/likes/${id}`)
+    setActioned((prev) => ({ ...prev, [id]: 'liked' }))
+    if (data.matched) window.alert("It's a match! You can now chat from the Matches tab.")
+  }
+
+  const pass = async (id: string) => {
+    await API.post(`/passes/${id}`)
+    setActioned((prev) => ({ ...prev, [id]: 'passed' }))
+    setProfiles((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  const recordView = async (id: string) => {
+    if (viewed.has(id)) return
+    setViewed((prev) => new Set(prev).add(id))
+    await API.post(`/profiles/${id}/view`).catch(() => {})
+  }
+
   return (
     <div className="space-y-6">
       <div className={`rounded-2xl p-6 ${t.card}`}>
@@ -164,23 +201,11 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
           )}
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className={`mb-1.5 block font-mono text-[10px] uppercase tracking-[0.1em] ${t.muted}`}>
-              Gender
-            </label>
-            <select
-              value={filters.gender}
-              onChange={(e) => set('gender', e.target.value)}
-              className={`w-full rounded-xl px-4 py-3 text-sm ${t.inputField}`}
-            >
-              <option value="">Any</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
+        <p className={`mt-2 font-mono text-[10px] uppercase tracking-[0.08em] ${t.muted}`}>
+          Showing opposite-gender profiles only — enforced by the server, not a filter you can change here.
+        </p>
 
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Input label="Age (min)" type="number" min={18} max={100} value={filters.ageMin} onChange={(e) => set('ageMin', e.target.value)} />
           <Input label="Age (max)" type="number" min={18} max={100} value={filters.ageMax} onChange={(e) => set('ageMax', e.target.value)} />
 
@@ -287,6 +312,42 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
           </div>
         </div>
 
+        {/* Elite-only advanced filters (Task 3.2) — same standard filters above PLUS
+            these. Rendered only for Elite members; even if sent anyway, GET
+            /api/profiles ignores them for a Standard member server-side. */}
+        {t.isElite && (
+          <div className={`mt-5 rounded-xl border ${t.border} p-4`}>
+            <p className={`font-mono text-[10px] uppercase tracking-[0.1em] ${t.accentText}`}>Elite advanced filters</p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className={`mb-1.5 block font-mono text-[10px] uppercase tracking-[0.1em] ${t.muted}`}>Income Bracket</label>
+                <select
+                  value={filters.incomeBracket}
+                  onChange={(e) => set('incomeBracket', e.target.value)}
+                  className={`w-full rounded-xl px-4 py-3 text-sm ${t.inputField}`}
+                >
+                  <option value="">Any</option>
+                  {INCOME_BRACKETS.map((b: string) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <Input label="Family Background" placeholder="e.g. Nuclear, joint…" value={filters.familyType} onChange={(e) => set('familyType', e.target.value)} />
+              <Input label="Lifestyle" placeholder="e.g. Travel, fitness…" value={filters.lifestyle} onChange={(e) => set('lifestyle', e.target.value)} />
+              <div>
+                <label className={`mb-1.5 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] ${t.muted}`}>
+                  <span>Min. Horoscope Compatibility</span>
+                  <span className={t.accentText}>{filters.minCompatibility || 0}%</span>
+                </label>
+                <input
+                  type="range" min={0} max={100} step={5}
+                  value={filters.minCompatibility || 0}
+                  onChange={(e) => set('minCompatibility', e.target.value)}
+                  className="w-full accent-current"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-4">
             <label className={`flex items-center gap-2 text-sm ${t.text}`}>
@@ -316,6 +377,8 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
+      {disclaimer && <AIMatchDisclaimer theme={t} text={disclaimer} />}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {profiles.map((p) => (
           <div key={p.id} className={`rounded-2xl p-5 ${t.card}`}>
@@ -331,9 +394,14 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
                   {[p.age ? `${p.age} yrs` : null, p.city].filter(Boolean).join(' · ')}
                 </p>
               </div>
-              {(p.idVerified || p.photoVerified || p.videoVerified) && (
-                <ShieldCheck className={`h-4 w-4 shrink-0 ${t.accentText}`} aria-label="Verified" />
-              )}
+              <div className="flex items-center gap-2">
+                {typeof p.compatibilityScore === 'number' && (
+                  <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] ${t.badgePill}`}>{p.compatibilityScore}%</span>
+                )}
+                {(p.idVerified || p.photoVerified || p.videoVerified) && (
+                  <ShieldCheck className={`h-4 w-4 shrink-0 ${t.accentText}`} aria-label="Verified" />
+                )}
+              </div>
             </div>
             <p className={`mt-2 text-xs ${t.muted}`}>{[p.religion, p.caste].filter(Boolean).join(' · ')}</p>
             {p.occupation && <p className={`mt-1 text-xs ${t.muted}`}>{p.occupation}</p>}
@@ -342,6 +410,31 @@ export function BrowseProfiles({ theme: t }: { theme: DashboardTheme }) {
                 {p.distanceKm} km away
               </p>
             )}
+
+            <div className="mt-3 flex items-center gap-2">
+              {actioned[p.id] === 'liked' ? (
+                <span className={`font-mono text-[10px] uppercase ${t.accentText}`}>Liked</span>
+              ) : (
+                <button
+                  onClick={() => void like(p.id)}
+                  className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs ${t.badgePill}`}
+                >
+                  <Heart className="h-3 w-3" /> Like
+                </button>
+              )}
+              <button
+                onClick={() => void pass(p.id)}
+                className={`flex items-center gap-1 rounded-full border ${t.border} px-3 py-1.5 text-xs ${t.muted}`}
+              >
+                <X className="h-3 w-3" /> Pass
+              </button>
+              <button
+                onClick={() => void recordView(p.id)}
+                className={`ml-auto flex items-center gap-1 text-xs ${viewed.has(p.id) ? t.accentText : t.muted}`}
+              >
+                <Eye className="h-3 w-3" /> {viewed.has(p.id) ? 'Viewed' : 'View'}
+              </button>
+            </div>
           </div>
         ))}
       </div>

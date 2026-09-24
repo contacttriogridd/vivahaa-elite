@@ -11,12 +11,33 @@ routes you to the right dashboard based on which one matched.
 
 | Button / label | Email | Password | Tier | Notes |
 |---|---|---|---|---|
-| User Demo | `demo@vivahaaelite.demo` | `Demo@123` | Standard (Gold) | Ordinary member account |
+| User Demo | `demo@vivahaaelite.demo` | `Demo@123` | Standard (Gold) | Ordinary member account. No gender set — GET /api/profiles correctly returns an empty list with a "set your gender" message rather than guessing. |
 | "Admin Demo" | `admin@vivahaaelite.demo` | `Admin@123` | Elite (Platinum Plus) | **Not a real admin** — the `User` model has no admin role. Despite the button's label, this is just a second regular member account, given Elite tier so the Elite dashboard theme is easy to check. |
 
 Seeded directly via Prisma (not through the registration wizard), so their profile
 fields are mostly empty — useful for checking auth/theme, not for a populated
 profile view.
+
+### Panel 3 tier/gender demo logins (real, populated profiles)
+
+All password `Member@123`. These double as regular engagement demo data — arjun and
+divya are already a mutual Match (chat works out of the box); ravi liked shalini but
+she hadn't liked back until you do it live (one-directional Like → no chat yet, a
+real "liked but not matched" state to check).
+
+| Email | Gender | Tier (plan) | Notes |
+|---|---|---|---|
+| `arjun@vivahaaelite.demo` | Male | Standard (GOLD) | Dealer-onboarded (CBEDEAL); mutual Match with Divya |
+| `divya@vivahaaelite.demo` | Female | Standard (GOLD) | Dealer-onboarded (CBEDEAL); mutual Match with Arjun |
+| `ravi@vivahaaelite.demo` | Male | Elite (PLATINUM) | Liked Shalini (not yet mutual) |
+| `shalini@vivahaaelite.demo` | Female | Elite (PLATINUM) | Received Ravi's like; Elite-only "who viewed me" works for this account |
+
+Each of the 4 has nakshatra/rashi/income/lifestyle/family-background fields filled
+in, so Elite's advanced filters and the AI best-match section have real data to
+score — not empty profiles. Verified live: each account's browse results contain
+only the opposite gender (checked via the raw `GET /api/profiles` response, not just
+the UI), Standard vs Elite visual theme and filter set differ for real, and the
+monthly profile-edit cap (5/month) blocks a 6th save with a clear message.
 
 ## Admin panel — Employee accounts (real, RBAC-enforced)
 

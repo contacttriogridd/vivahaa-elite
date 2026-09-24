@@ -110,6 +110,14 @@ model User {
   education     String?
   occupation    String?
   income        String?
+  /// Coarse income range ("Below 5 LPA" | "5-10 LPA" | "10-20 LPA" | "20-50 LPA" |
+  /// "50 LPA+") backing the Elite-only income-bracket search filter — kept separate
+  /// from the free-text `income` field above (which is whatever the member typed at
+  /// registration, e.g. "12 LPA" or "₹8,00,000") because a filter needs an exact-
+  /// match value, not a string to substring-match against. Not yet captured by the
+  /// registration wizard — null for every member who registered before this existed;
+  /// only demo/seed data has it populated for now.
+  incomeBracket String?
   tier          String   @default("standard")
   plan          PlanTier @default(GOLD)
   feeStatus     String   @default("pending")

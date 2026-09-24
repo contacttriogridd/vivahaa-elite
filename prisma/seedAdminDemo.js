@@ -6,6 +6,7 @@
 import bcrypt from 'bcryptjs'
 import { createEmployeeWithId } from '../server/lib/employeeId.js'
 import { createVendorWithId } from '../server/lib/vendorId.js'
+import { isElitePlanTier } from '../server/lib/plans.js'
 
 export async function seedAdminDemo(prisma) {
   // ── Employees, one per scoped role (HR_ADMIN + USER_MANAGEMENT already exist
@@ -74,25 +75,62 @@ export async function seedAdminDemo(prisma) {
   if (photographyVendor) vendors['Photography'] = photographyVendor
 
   // ── Members: a few dealer-registered, a few self-registered ─────────────────
+  // arjun/divya (Standard) and ravi/shalini (Elite) double as Panel 3's 4 demo
+  // logins — Male/Female on each tier — rather than adding 4 more accounts, since
+  // these already carry real engagement data (arjun<->divya and karthik<->meena are
+  // mutual Matches below; ravi->shalini is a one-directional Like, not yet mutual —
+  // useful for demoing "liked but chat still locked"). Horoscope/lifestyle/income
+  // fields are filled in so Elite's advanced filters and the AI best-match section
+  // have real data to score, not empty fields.
   const memberSeeds = [
-    { email: 'arjun@vivahaaelite.demo', name: 'Arjun Kumar', gender: 'Male', city: 'Coimbatore', religion: 'Hindu', caste: 'Gounder', plan: 'GOLD', dealerId: dealer1.id },
-    { email: 'divya@vivahaaelite.demo', name: 'Divya Rajan', gender: 'Female', city: 'Coimbatore', religion: 'Hindu', caste: 'Gounder', plan: 'GOLD', dealerId: dealer1.id },
-    { email: 'karthik@vivahaaelite.demo', name: 'Karthik Selvam', gender: 'Male', city: 'Salem', religion: 'Hindu', caste: 'Naidu', plan: 'DIAMOND', dealerId: dealer2.id },
-    { email: 'meena@vivahaaelite.demo', name: 'Meena Sundaram', gender: 'Female', city: 'Salem', religion: 'Hindu', caste: 'Naidu', plan: 'SILVER', dealerId: dealer2.id },
-    { email: 'ravi@vivahaaelite.demo', name: 'Ravi Prakash', gender: 'Male', city: 'Tirupur', religion: 'Christian', plan: 'PLATINUM', dealerId: null },
-    { email: 'shalini@vivahaaelite.demo', name: 'Shalini Iyer', gender: 'Female', city: 'Tirupur', religion: 'Christian', plan: 'PLATINUM', dealerId: null },
+    { email: 'arjun@vivahaaelite.demo', name: 'Arjun Kumar', gender: 'Male', city: 'Coimbatore', religion: 'Hindu', caste: 'Gounder', plan: 'GOLD', dealerId: dealer1.id,
+      nakshatra: 'Ashwini', rashi: 'Mesha', education: 'B.E. Mechanical', occupation: 'Software Engineer', foodPreference: 'Vegetarian',
+      hobbies: 'Cricket, Reading', lifestyleInterests: 'Fitness, Travel', familyType: 'Nuclear', income: '₹15 LPA', incomeBracket: '10-20 LPA',
+      partnerReligion: 'Hindu', partnerLocation: 'Coimbatore' },
+    { email: 'divya@vivahaaelite.demo', name: 'Divya Rajan', gender: 'Female', city: 'Coimbatore', religion: 'Hindu', caste: 'Gounder', plan: 'GOLD', dealerId: dealer1.id,
+      nakshatra: 'Rohini', rashi: 'Vrishabha', education: 'M.Sc Computer Science', occupation: 'Data Analyst', foodPreference: 'Vegetarian',
+      hobbies: 'Painting, Music', lifestyleInterests: 'Yoga, Travel', familyType: 'Nuclear', income: '₹12 LPA', incomeBracket: '10-20 LPA',
+      partnerReligion: 'Hindu', partnerLocation: 'Coimbatore' },
+    { email: 'karthik@vivahaaelite.demo', name: 'Karthik Selvam', gender: 'Male', city: 'Salem', religion: 'Hindu', caste: 'Naidu', plan: 'DIAMOND', dealerId: dealer2.id,
+      nakshatra: 'Mrigashira', rashi: 'Mithuna', education: 'B.Com', occupation: 'Bank Manager', foodPreference: 'Non-Vegetarian',
+      hobbies: 'Chess', lifestyleInterests: 'Cricket, Movies', familyType: 'Joint', income: '₹9 LPA', incomeBracket: '5-10 LPA' },
+    { email: 'meena@vivahaaelite.demo', name: 'Meena Sundaram', gender: 'Female', city: 'Salem', religion: 'Hindu', caste: 'Naidu', plan: 'SILVER', dealerId: dealer2.id,
+      nakshatra: 'Bharani', rashi: 'Mesha', education: 'B.A. English', occupation: 'School Teacher', foodPreference: 'Vegetarian',
+      hobbies: 'Dance', lifestyleInterests: 'Reading', familyType: 'Joint', income: '₹4.5 LPA', incomeBracket: 'Below 5 LPA' },
+    { email: 'ravi@vivahaaelite.demo', name: 'Ravi Prakash', gender: 'Male', city: 'Tirupur', religion: 'Christian', plan: 'PLATINUM', dealerId: null,
+      nakshatra: 'Hasta', rashi: 'Kanya', education: 'MBA Finance', occupation: 'Investment Banker', foodPreference: 'Non-Vegetarian',
+      hobbies: 'Golf, Wine tasting', lifestyleInterests: 'Luxury travel, Art collecting', familyType: 'Joint family, established business background',
+      income: '₹80 LPA', incomeBracket: '50 LPA+', partnerReligion: 'Christian', partnerLocation: 'Tirupur' },
+    { email: 'shalini@vivahaaelite.demo', name: 'Shalini Iyer', gender: 'Female', city: 'Tirupur', religion: 'Christian', plan: 'PLATINUM', dealerId: null,
+      nakshatra: 'Hasta', rashi: 'Kanya', education: 'MD Physician', occupation: 'Doctor', foodPreference: 'Non-Vegetarian',
+      hobbies: 'Classical dance, Photography', lifestyleInterests: 'Luxury travel, Philanthropy', familyType: 'Joint family, business background',
+      income: '₹60 LPA', incomeBracket: '50 LPA+', partnerReligion: 'Christian', partnerLocation: 'Tirupur' },
   ]
   const members = {}
   for (const seed of memberSeeds) {
     let user = await prisma.user.findUnique({ where: { email: seed.email } })
+    const richFields = {
+      nakshatra: seed.nakshatra, rashi: seed.rashi, education: seed.education, occupation: seed.occupation,
+      foodPreference: seed.foodPreference, hobbies: seed.hobbies, lifestyleInterests: seed.lifestyleInterests,
+      familyType: seed.familyType, income: seed.income, incomeBracket: seed.incomeBracket,
+      partnerReligion: seed.partnerReligion, partnerLocation: seed.partnerLocation,
+    }
     if (!user) {
       const hashed = await bcrypt.hash('Member@123', 12)
       user = await prisma.user.create({
         data: {
           email: seed.email, password: hashed, name: seed.name, gender: seed.gender, city: seed.city,
-          religion: seed.religion, caste: seed.caste, plan: seed.plan, tier: 'standard',
+          religion: seed.religion, caste: seed.caste, plan: seed.plan, tier: isElitePlanTier(seed.plan) ? 'elite' : 'standard',
           dealerId: seed.dealerId, approved: true, emailVerified: true, profileCompletion: 80,
+          ...richFields,
         },
+      })
+    } else if (!user.nakshatra) {
+      // Backfills the horoscope/lifestyle/income fields onto members created by an
+      // earlier run of this seed script, before those fields existed here.
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { tier: isElitePlanTier(seed.plan) ? 'elite' : 'standard', ...richFields },
       })
     }
     members[seed.email] = user

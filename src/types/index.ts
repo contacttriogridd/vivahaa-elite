@@ -32,6 +32,8 @@ export interface User {
   education?: string | null
   occupation?: string | null
   income?: string | null
+  /** Coarse bucket backing the Elite income filter — see incomeBracket's doc comment in prisma/schema.prisma. */
+  incomeBracket?: string | null
   height?: string | null
   weight?: string | null
   bloodGroup?: string | null
