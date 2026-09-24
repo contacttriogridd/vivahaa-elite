@@ -4,7 +4,8 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "src/data/taxonomy/cityGeo.json"
+      "includeFiles": "src/data/taxonomy/cityGeo.json",
+      "maxDuration": 120
     }
   }
 }

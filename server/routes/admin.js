@@ -4,6 +4,7 @@
 // requireRole(...) for the specific section.
 import express from 'express'
 import bcrypt from 'bcryptjs'
+import { seedDemoExtended } from '../../prisma/seedDemoExtended.js'
 import {
   EMPLOYEE_ROLES, signEmployeeToken, authenticateEmployee, requireRole, logEmployeeAction,
 } from '../lib/rbac.js'
@@ -58,6 +59,26 @@ export function createAdminRouter(prisma) {
   router.post('/logout', (req, res) => {
     res.clearCookie('employeeAccessToken')
     res.json({ message: 'Logged out' })
+  })
+
+  // POST /api/admin/_seed-demo-extended — TEMPORARY, remove after use. Same pattern
+  // and same reasoning as the earlier one-time /_seed-production trigger (see that
+  // commit's history): there's no way to reach production's DATABASE_URL from
+  // outside the running deployment, so a secret-gated route is the only way to run
+  // prisma/seedDemoExtended.js (npm run db:seed:extended locally) against it. Gated
+  // on SEED_TRIGGER_SECRET, 404s instead of 401 when unset/wrong so the route isn't
+  // observable. vercel.json's maxDuration:120 exists specifically so this has enough
+  // runway to finish (it generates ~80 users + ~29 vendors + their activity data).
+  router.post('/_seed-demo-extended', async (req, res) => {
+    if (!process.env.SEED_TRIGGER_SECRET || req.headers['x-seed-secret'] !== process.env.SEED_TRIGGER_SECRET) {
+      return res.status(404).end()
+    }
+    try {
+      const result = await seedDemoExtended(prisma)
+      res.json({ message: 'Seeded', ...result })
+    } catch (err) {
+      res.status(500).json({ message: err.message })
+    }
   })
 
   // GET /api/admin/me — used by the admin SPA to know which sections/actions to show.
