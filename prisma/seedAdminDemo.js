@@ -46,11 +46,17 @@ export async function seedAdminDemo(prisma) {
   }
 
   // ── Vendors across categories (V001PH already seeded by seed.js) ────────────
+  // Panel 2 needs at least one seeded vendor per of the 6 category-dashboard
+  // families (server/lib/vendorCategoryFields.js) — dj1/iyer1 added purely so the
+  // category-specific field schema can be checked live for every family, even
+  // though they carry no booking history of their own.
   const vendorSeeds = [
     { email: 'venue1@vivahaaelite.demo', name: 'Grand Regal Venue', category: 'Venue', city: 'Coimbatore', tier: 'elite' },
     { email: 'catering1@vivahaaelite.demo', name: 'Royal Feast Caterers', category: 'Catering', city: 'Tirupur', tier: 'standard' },
     { email: 'makeup1@vivahaaelite.demo', name: 'Glow Bridal Makeup', category: 'Makeup', city: 'Coimbatore', tier: 'elite' },
     { email: 'decor1@vivahaaelite.demo', name: 'Elegant Decor Co', category: 'Decor', city: 'Erode', tier: 'standard' },
+    { email: 'dj1@vivahaaelite.demo', name: 'Beats & Baraat DJ', category: 'DJ', city: 'Coimbatore', tier: 'standard' },
+    { email: 'iyer1@vivahaaelite.demo', name: 'Sri Ganapathy Iyer Services', category: 'Iyer/Purohit', city: 'Salem', tier: 'standard' },
   ]
   const vendors = {}
   for (const seed of vendorSeeds) {
@@ -136,6 +142,15 @@ export async function seedAdminDemo(prisma) {
   const b3 = await findOrCreateBooking({ userId: karthik.id, vendorId: vendors['Makeup'].id, serviceType: 'Makeup', status: 'CANCELLED', cancelledBy: 'USER', cancelReason: 'Rescheduled the wedding date' })
   const b4 = await findOrCreateBooking({ userId: karthik.id, vendorId: vendors['Decor'].id, serviceType: 'Decor', status: 'CANCELLED', cancelledBy: 'VENDOR', cancelReason: 'Double-booked on that date' })
   const b5 = await findOrCreateBooking({ userId: meena.id, vendorId: vendors['Photography'].id, serviceType: 'Photography', status: 'COMPLETED', scheduledDate: new Date('2026-07-01') })
+  // Extra Catering bookings so the demo vendor login (catering1) exercises every
+  // order-status bucket in one place, not just Ongoing + Under Valuation.
+  const b6 = await findOrCreateBooking({ userId: shalini.id, vendorId: vendors['Catering'].id, serviceType: 'Catering', status: 'COMPLETED', scheduledDate: new Date('2026-06-10') })
+  const b7 = await findOrCreateBooking({ userId: divya.id, vendorId: vendors['Catering'].id, serviceType: 'Catering', status: 'CANCELLED', cancelledBy: 'VENDOR', cancelReason: 'Fully booked on that date' })
+
+  // Category-specific details (Task 2.3's headcount/menu example for Catering) —
+  // set unconditionally so re-seeding an already-created booking still backfills it.
+  await prisma.booking.update({ where: { id: b2.id }, data: { details: { headcount: 350, menu: 'South Indian vegetarian' } } })
+  await prisma.booking.update({ where: { id: b6.id }, data: { details: { headcount: 220, menu: 'North & South Indian multi-cuisine' } } })
 
   // ── Ratings for completed bookings ──────────────────────────────────────────
   const ensureRating = async (bookingId, vendorId, userId, rating, review) => {
@@ -144,6 +159,7 @@ export async function seedAdminDemo(prisma) {
   }
   await ensureRating(b1.id, vendors['Venue'].id, arjun.id, 5, 'Beautiful venue, excellent service.')
   await ensureRating(b5.id, vendors['Photography'].id, meena.id, 4, 'Great photos, slightly late to arrive.')
+  await ensureRating(b6.id, vendors['Catering'].id, shalini.id, 5, 'Food was outstanding, guests loved it.')
 
   // ── Payments: membership (with dealer attribution where applicable) + vendor booking ──
   const findOrCreatePayment = async (where, data) => {
@@ -182,6 +198,10 @@ export async function seedAdminDemo(prisma) {
   await findOrCreatePayment(
     { bookingId: b5.id },
     { userId: meena.id, vendorId: vendors['Photography'].id, dealerId: dealer2.id, bookingId: b5.id, amount: 18000, method: 'UPI', status: 'SUCCESS', type: 'VENDOR_BOOKING' }
+  )
+  await findOrCreatePayment(
+    { bookingId: b6.id },
+    { userId: shalini.id, vendorId: vendors['Catering'].id, bookingId: b6.id, amount: 62000, method: 'CARD', status: 'SUCCESS', type: 'VENDOR_BOOKING' }
   )
 
   // ── Enquiries funnel: some converted, some open/closed, general + vendor-directed ──

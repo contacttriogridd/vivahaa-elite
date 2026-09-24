@@ -45,14 +45,32 @@ ratings, and enquiries — see `prisma/seedAdminDemo.js` for the full list.
 ## Vendor partner portal (real, own-data-only)
 
 Same main sign-in form again, backed by the same `Vendor` rows the admin Vendor
-Management section manages. A vendor can only ever see its own
-bookings/ratings/cancellations:
+Management section manages. A vendor can only ever see its own bookings, and
+(Panel 2) its dashboard is split into Profile & Category Info / Bookings / Earnings /
+Ratings & Feedback / Statistics sections, with category-specific booking fields
+(`server/lib/vendorCategoryFields.js`) that differ per one of 6 "dashboard families":
 
-- `vendor@vivahaaelite.demo` / `Vendor@123` (Photography, `V001PH`)
-- `venue1@vivahaaelite.demo` / `Vendor@123` (Venue, `V002VN`)
-- `catering1@vivahaaelite.demo` / `Vendor@123` (Catering, `V003CS`)
-- `makeup1@vivahaaelite.demo` / `Vendor@123` (Makeup, `V004MU` — has a cancelled booking)
-- `decor1@vivahaaelite.demo` / `Vendor@123` (Decor, `V005DC` — has a cancelled booking + an open complaint)
+- `vendor@vivahaaelite.demo` / `Vendor@123` (Photography, `V001PH`) — 1 completed
+  booking, ₹18,000 earnings, 1 rating
+- `venue1@vivahaaelite.demo` / `Vendor@123` (Venue, `V002VN`) — 1 completed booking,
+  ₹45,000 earnings, 1 rating
+- `catering1@vivahaaelite.demo` / `Vendor@123` (Catering, `V003CS`) — **richest demo
+  account**: 1 completed (₹62,000, rated 5★), 1 ongoing (with headcount/menu detail
+  fields filled in), 1 rejected ("Fully booked on that date"), 1 Under Valuation
+  enquiry awaiting Accept/Decline
+- `makeup1@vivahaaelite.demo` / `Vendor@123` (Makeup, `V004MU`) — has a rejected booking
+- `decor1@vivahaaelite.demo` / `Vendor@123` (Decor, `V005DC`) — has a rejected booking
+  + an open complaint (Decorations & Flowers family, shared with Florist)
+- `rbacflorist@vivahaaelite.demo` / `Vendor@123` (Florist, `V006FL`) — Decorations &
+  Flowers family
+- `dj1@vivahaaelite.demo` / `Vendor@123` (DJ, `V007DJ`) — category fields only, no
+  booking history yet
+- `iyer1@vivahaaelite.demo` / `Vendor@123` (Iyer/Purohit, `V008PR`) — Iyer &
+  Nadaswaram family (shared with Nadhaswaram-Vaathiyam), category fields only
+
+"Under Valuation" = an `Enquiry` at `status=OPEN` for that vendor — the vendor
+Accepts (→ `CONVERTED`) or Declines (→ `CLOSED`) it from the Bookings tab.
+"Rejected" = `Booking.status=CANCELLED`, shown with who cancelled and why.
 
 ## Dealer portal (real, own-onboarded-users-only)
 
