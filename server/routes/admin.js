@@ -65,6 +65,29 @@ export function createAdminRouter(prisma) {
     res.json({ employee: serializeEmployee(req.employee) })
   })
 
+  // POST /api/admin/_fix-florist-demo — TEMPORARY, remove after use. rbacflorist@
+  // was leftover RBAC-testing data from an earlier session with a password that was
+  // never actually Vendor@123, despite DEMO_CREDENTIALS.md documenting it as such —
+  // caught live when the client tried to sign in with it. Same secret-gated,
+  // remove-after-use pattern as every other production one-off in this project's
+  // history. Not the seedCore/seedDemoExtended scripts since this is a narrow,
+  // one-row fix, not a re-seed.
+  router.post('/_fix-florist-demo', async (req, res) => {
+    if (!process.env.SEED_TRIGGER_SECRET || req.headers['x-seed-secret'] !== process.env.SEED_TRIGGER_SECRET) {
+      return res.status(404).end()
+    }
+    try {
+      const hashed = await bcrypt.hash('Vendor@123', 12)
+      const vendor = await prisma.vendor.update({
+        where: { email: 'rbacflorist@vivahaaelite.demo' },
+        data: { password: hashed, name: 'Petal Paradise Florists', city: 'Erode', tier: 'standard', status: 'active', verified: true, price: '₹8,000 onwards' },
+      })
+      res.json({ message: 'Fixed', vendorId: vendor.vendorId, email: vendor.email })
+    } catch (err) {
+      res.status(500).json({ message: err.message })
+    }
+  })
+
   // ── Employee management (HR_ADMIN only) ─────────────────────────────────────
 
   router.get('/employees', requireEmployee, requireRole(), async (req, res) => {
