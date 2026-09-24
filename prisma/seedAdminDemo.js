@@ -23,11 +23,20 @@ export async function seedAdminDemo(prisma) {
   }
 
   // ── Dealers ──────────────────────────────────────────────────────────────────
+  // dealer1 gets a real login (Panel 1 demo account) — dealer2 is left with no
+  // password, demonstrating that a dealer with none set simply can't sign in yet
+  // (see Dealer.password's doc comment).
   let dealer1 = await prisma.dealer.findUnique({ where: { dealerCode: 'CBEDEAL' } })
   if (!dealer1) {
     dealer1 = await prisma.dealer.create({
-      data: { name: 'Coimbatore Alliance Partners', email: 'dealer1@vivahaaelite.demo', dealerCode: 'CBEDEAL', city: 'Coimbatore', phone: '9840011111', commissionPct: 8, verified: true },
+      data: {
+        name: 'Coimbatore Alliance Partners', email: 'dealer1@vivahaaelite.demo', dealerCode: 'CBEDEAL',
+        city: 'Coimbatore', phone: '9840011111', commissionPct: 8, verified: true,
+        password: await bcrypt.hash('Dealer@123', 12),
+      },
     })
+  } else if (!dealer1.password) {
+    dealer1 = await prisma.dealer.update({ where: { id: dealer1.id }, data: { password: await bcrypt.hash('Dealer@123', 12) } })
   }
   let dealer2 = await prisma.dealer.findUnique({ where: { dealerCode: 'SLMDEAL' } })
   if (!dealer2) {

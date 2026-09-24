@@ -189,13 +189,16 @@ model User {
   parents        Parent[]
   documents      ProfileDocument[]
 
-  likesSent            Like[]        @relation("LikesSent")
-  likesReceived        Like[]        @relation("LikesReceived")
-  matchesAsA           Match[]       @relation("MatchUserA")
-  matchesAsB           Match[]       @relation("MatchUserB")
+  likesSent            Like[]           @relation("LikesSent")
+  likesReceived        Like[]           @relation("LikesReceived")
+  passesSent           ProfilePass[]    @relation("PassesSent")
+  passesReceived       ProfilePass[]    @relation("PassesReceived")
+  editLogs             ProfileEditLog[]
+  matchesAsA           Match[]          @relation("MatchUserA")
+  matchesAsB           Match[]          @relation("MatchUserB")
   messagesSent         Message[]
-  profileViewsMade     ProfileView[] @relation("Viewer")
-  profileViewsReceived ProfileView[] @relation("Viewed")
+  profileViewsMade     ProfileView[]    @relation("Viewer")
+  profileViewsReceived ProfileView[]    @relation("Viewed")
 
   // Admin panel filters by these together frequently (Reports, Engagement, Users).
   @@index([religion, caste, city])
@@ -215,6 +218,38 @@ model Like {
   toUser   User @relation("LikesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@unique([fromUserId, toUserId])
+}
+
+/// A one-directional "pass" (rejected/not interested) — mirrors Like's shape
+/// exactly, kept as its own model rather than a status flag on Like so a user's
+/// like and pass history both stay simple append-only logs. Passed profiles are
+/// excluded from that user's own future search results (see GET /api/profiles) —
+/// otherwise passing on a profile would have no visible effect and the feature
+/// would be pointless.
+model ProfilePass {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  createdAt  DateTime @default(now())
+
+  fromUser User @relation("PassesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("PassesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+}
+
+/// One row per saved profile edit — purely a counter log for the monthly edit cap
+/// (see MONTHLY_EDIT_LIMIT in server/lib/profileEditLimit.js), not a full field-level
+/// audit trail. "One save action, however many fields it touches, counts as one
+/// change" — see that file's own comment for why.
+model ProfileEditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 /// Created once both directions of a Like exist. userAId/userBId are always stored
@@ -502,9 +537,17 @@ model Employee {
 model Dealer {
   id            String   @id @default(cuid())
   sequenceNo    Int      @unique @default(autoincrement())
+  /// Also doubles as the dealer's promo code, captured on User.dealerId at signup —
+  /// there's no separate promoCode field because this already is one (admin-assigned,
+  /// unique, human-readable).
   dealerCode    String   @unique
   name          String
   email         String   @unique
+  /// Nullable because dealers created before self-service login existed have none
+  /// yet — set by an admin via the dealer management screen, at which point the
+  /// dealer can sign in through the same unified POST /api/auth/login as everyone
+  /// else. A null password means "no login enabled for this dealer."
+  password      String?
   phone         String?
   city          String?
   commissionPct Float    @default(8)
@@ -562,7 +605,7 @@ model Vendor {
 /// created. `payerName`/`payerEmail` are snapshotted from the draft so the admin
 /// Payments screen still shows who a pending/failed pre-signup row belongs to.
 model Payment {
-  id                String        @id @default(cuid())
+  id                String         @id @default(cuid())
   userId            String?
   dealerId          String?
   vendorId          String?
@@ -572,8 +615,8 @@ model Payment {
   /// Unknown until Razorpay reports it at capture time — null for a still-PENDING
   /// order created ahead of checkout.
   method            PaymentMethod?
-  status            PaymentStatus @default(PENDING)
-  type              PaymentType   @default(MEMBERSHIP)
+  status            PaymentStatus  @default(PENDING)
+  type              PaymentType    @default(MEMBERSHIP)
   /// Snapshot of the member's plan at the moment of payment — set for MEMBERSHIP
   /// payments. Deliberately not derived from the live User.plan, which can change
   /// after this payment (upgrades/downgrades) and would silently rewrite history.
@@ -582,10 +625,10 @@ model Payment {
   payerEmail        String?
   /// Razorpay order id — set at order-creation time, before payment. Unique so the
   /// webhook can upsert idempotently against redelivery.
-  razorpayOrderId   String?       @unique
-  razorpayPaymentId String?       @unique
+  razorpayOrderId   String?        @unique
+  razorpayPaymentId String?        @unique
   razorpaySignature String?
-  createdAt         DateTime      @default(now())
+  createdAt         DateTime       @default(now())
 
   user    User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   dealer  Dealer?            @relation(fields: [dealerId], references: [id])
@@ -630,6 +673,13 @@ model Booking {
   scheduledDate DateTime?
   cancelledBy   CancelledBy?
   cancelReason  String?
+  /// Category-specific fields (headcount/menu for Catering, hours/package for
+  /// Photography, ceremony type/duration for Iyer & Nadaswaram, etc.) — deliberately
+  /// a loose bag rather than a wide sparse table of columns that only ever apply to
+  /// one category each. Shape per category is defined in
+  /// server/lib/vendorCategoryFields.js, validated at the API layer on write, not by
+  /// the database.
+  details       Json?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

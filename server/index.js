@@ -12,7 +12,8 @@ import { dirname, join } from 'path'
 import { readFileSync } from 'fs'
 import { createAdminRouter } from './routes/admin.js'
 import { createVendorRouter } from './routes/vendor.js'
-import { signEmployeeToken, signVendorToken } from './lib/rbac.js'
+import { createDealerRouter } from './routes/dealer.js'
+import { signEmployeeToken, signVendorToken, signDealerToken } from './lib/rbac.js'
 import { createRegistrationRouter } from './routes/registration.js'
 import { createPaymentsRouter } from './routes/payments.js'
 
@@ -102,6 +103,7 @@ const serializeOwnProfile = (full) => {
 
 const serializeEmployee = ({ password, ...rest }) => rest
 const serializeVendor = ({ password, ...rest }) => rest
+const serializeDealer = ({ password, ...rest }) => rest
 const employeeCookieOpts = () => ({ httpOnly: true, secure: process.env.COOKIE_SECURE === 'true', sameSite: 'lax', maxAge: 8 * 3600000 })
 
 // ── Auth Routes ──────────────────────────────────────────────────────────────
@@ -111,12 +113,12 @@ const employeeCookieOpts = () => ({ httpOnly: true, secure: process.env.COOKIE_S
 // account type keeps its own table, its own password hash, and — critically — its
 // own token type/cookie/signing function exactly as before this was unified: a
 // vendor still gets a vendor-scoped JWT via signVendorToken, an employee still gets
-// one carrying their RBAC role via signEmployeeToken. Unifying only changed how
-// credentials are looked up up front; every downstream authenticateEmployee/
-// authenticateVendor/authMiddleware check (and the role gating built on top of
-// them) is untouched. Dealers are deliberately not checked here — there is no
-// real dealer account/password in this schema (see Task 7: dealer corrections go
-// through an employee-managed request log, not a dealer login).
+// one carrying their RBAC role via signEmployeeToken, a dealer gets a dealer-scoped
+// JWT via signDealerToken. Unifying only changed how credentials are looked up up
+// front; every downstream authenticateEmployee/authenticateVendor/authenticateDealer/
+// authMiddleware check (and the role gating built on top of them) is untouched.
+// Dealer.password is nullable — a dealer with none set (the common case for dealers
+// created before self-service login existed) simply falls through to the final 401.
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body
@@ -157,6 +159,14 @@ app.post('/api/auth/login', async (req, res) => {
       const accessToken = signVendorToken(vendor)
       res.cookie('vendorAccessToken', accessToken, employeeCookieOpts())
       return res.json({ accountType: 'vendor', accessToken, vendor: serializeVendor(vendor) })
+    }
+
+    const dealer = await prisma.dealer.findUnique({ where: { email } })
+    if (dealer && dealer.password && await bcrypt.compare(password, dealer.password)) {
+      if (dealer.status !== 'active') return res.status(403).json({ message: 'Account is not active' })
+      const accessToken = signDealerToken(dealer)
+      res.cookie('dealerAccessToken', accessToken, employeeCookieOpts())
+      return res.json({ accountType: 'dealer', accessToken, dealer: serializeDealer(dealer) })
     }
 
     return res.status(401).json({ message: 'Invalid email or password' })
@@ -707,6 +717,7 @@ app.post('/api/horoscope/summarise', authMiddleware, async (req, res) => {
 // distinct from the member authMiddleware above.
 app.use('/api/admin', limiter, createAdminRouter(prisma))
 app.use('/api/vendor', limiter, createVendorRouter(prisma))
+app.use('/api/dealer', limiter, createDealerRouter(prisma))
 
 // Public registration wizard drafts + Razorpay-gated membership checkout — see
 // server/routes/registration.js and server/routes/payments.js. `limiter` is the same

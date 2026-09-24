@@ -6,8 +6,9 @@ import AdminPortal from './admin/AdminPortal'
 import Dashboard from './pages/Dashboard.tsx'
 import PremiumLogin from './pages/PremiumLogin.tsx'
 import { useAuth } from './contexts/AuthContext'
-import { adminApi, vendorApi } from './admin/apiClient.js'
+import { adminApi, vendorApi, dealerApi } from './admin/apiClient.js'
 import VendorPortal from './vendor/VendorPortal.jsx'
+import DealerPortal from './dealer/DealerPortal.jsx'
 import API from './lib/api'
 
 export default function App() {
@@ -19,6 +20,9 @@ export default function App() {
   // Real signed-in vendor (own bookings/ratings only), sourced from /api/vendor/me —
   // same pattern as `employee` above, deliberately separate state and token.
   const [vendor, setVendor] = useState<any>(null)
+  // Real signed-in dealer (own onboarded users/match-tool/reminders only), sourced
+  // from /api/dealer/me — same pattern as `vendor` above.
+  const [dealer, setDealer] = useState<any>(null)
   const [, forceUpdate] = useState(0)
   const refresh = () => forceUpdate((n: number) => n + 1)
 
@@ -40,6 +44,15 @@ export default function App() {
     vendorApi.get('/vendor/me')
       .then(({ data }) => setVendor(data.vendor))
       .catch(() => localStorage.removeItem('vendorAccessToken'))
+  }, [])
+
+  // Same restore-on-refresh behavior for a signed-in dealer.
+  useEffect(() => {
+    const token = localStorage.getItem('dealerAccessToken')
+    if (!token) return
+    dealerApi.get('/dealer/me')
+      .then(({ data }) => setDealer(data.dealer))
+      .catch(() => localStorage.removeItem('dealerAccessToken'))
   }, [])
 
   // Real signed-in user, sourced from the actual database via AuthContext — not the
@@ -77,6 +90,9 @@ export default function App() {
     } else if (data.accountType === 'vendor') {
       localStorage.setItem('vendorAccessToken', data.accessToken)
       setVendor(data.vendor)
+    } else if (data.accountType === 'dealer') {
+      localStorage.setItem('dealerAccessToken', data.accessToken)
+      setDealer(data.dealer)
     } else {
       localStorage.setItem('accessToken', data.accessToken)
       setUser(data.user)
@@ -101,6 +117,10 @@ export default function App() {
 
   if (vendor) {
     return <VendorPortal vendor={vendor} onLogout={() => { setVendor(null); setPage('landing') }} />
+  }
+
+  if (dealer) {
+    return <DealerPortal dealer={dealer} onLogout={() => { setDealer(null); setPage('landing') }} />
   }
 
   const renderPage = () => {

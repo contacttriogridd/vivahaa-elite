@@ -21,3 +21,4 @@ function makeClient(tokenKey) {
 
 export const adminApi = makeClient('employeeAccessToken')
 export const vendorApi = makeClient('vendorAccessToken')
+export const dealerApi = makeClient('dealerAccessToken')

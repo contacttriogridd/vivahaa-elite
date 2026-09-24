@@ -14,8 +14,16 @@ function score(user, candidate) {
   return s
 }
 
-/** Returns up to `limit` best-scoring opposite-gender candidates for `user`, best first. */
-export async function suggestMatches(prisma, user, limit = 3) {
+/**
+ * Returns up to `limit` best-scoring opposite-gender candidates for `user`, best first.
+ * `sameTierOnly` (used by the dealer match tool, Task 8: dealers may only suggest
+ * matches within the same membership tier — a hard server-side filter, not a UI
+ * convention) restricts candidates to the same `plan` as `user`. "Tier" here means
+ * the PlanTier enum (SILVER/GOLD/DIAMOND/PLATINUM/PLATINUM_PLUS) — the same field
+ * the admin Payments screen labels "Tier" (tierAtPayment) — not the coarser
+ * standard/elite `User.tier` string.
+ */
+export async function suggestMatches(prisma, user, limit = 3, { sameTierOnly = false } = {}) {
   const targetGender = opposite(user.gender)
   if (!targetGender) return []
 
@@ -25,6 +33,7 @@ export async function suggestMatches(prisma, user, limit = 3) {
       status: 'active',
       approved: true,
       id: { not: user.id },
+      ...(sameTierOnly ? { plan: user.plan } : {}),
     },
     select: {
       id: true, name: true, city: true, religion: true, caste: true,

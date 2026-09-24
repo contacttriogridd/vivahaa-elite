@@ -4,9 +4,8 @@ Dev and QA only — none of this is real user data.
 
 **All accounts below sign in through the one "Sign In" form** (the "Welcome Back"
 page) — there is no longer a separate admin/vendor/dealer login page. `POST
-/api/auth/login` tries the member, employee, and vendor tables in turn and routes
-you to the right dashboard based on which one matched. Dealers don't have a
-self-service login at all (see "Dealers — no login" below).
+/api/auth/login` tries the member, employee, vendor, and dealer tables in turn and
+routes you to the right dashboard based on which one matched.
 
 ## Member accounts (email/password login)
 
@@ -55,13 +54,32 @@ bookings/ratings/cancellations:
 - `makeup1@vivahaaelite.demo` / `Vendor@123` (Makeup, `V004MU` — has a cancelled booking)
 - `decor1@vivahaaelite.demo` / `Vendor@123` (Decor, `V005DC` — has a cancelled booking + an open complaint)
 
-## Dealers — no login
+## Dealer portal (real, own-onboarded-users-only)
 
-Dealers do not get a self-service login (the old client-side mock `Dealer.jsx` /
-`DealerLogin` was removed when login was unified into the one form). Dealer-related
-work happens entirely on the admin side: the Dealer Management employee role
-(`dealermgr@vivahaaelite.demo` above) manages dealer records and resolves the
-edit-request log dealers submit by email/ticket.
+Same main sign-in form again, backed by the `Dealer` model (Panel 1). A dealer can
+only ever see members carrying their own `dealerId` (i.e. onboarded with their promo
+code — `Dealer.dealerCode` doubles as the promo code, there's no separate field), and
+can only suggest matches for those members against candidates on the *same
+membership tier* (`User.plan`) — enforced server-side in `POST
+/api/dealer/users/:userId/send-match`, not just hidden in the UI:
+
+- `dealer1@vivahaaelite.demo` / `Dealer@123` (Coimbatore Alliance Partners, promo
+  code `CBEDEAL`) — onboarded members: Arjun Kumar & Divya Rajan (both GOLD tier)
+
+`dealer2@vivahaaelite.demo` (Salem Matrimony Associates, `SLMDEAL`) has no password
+set, demonstrating a dealer with self-service login not yet enabled by an admin — the
+unified login correctly falls through to "Invalid email or password" for it, same as
+any other unmatched login attempt.
+
+Dealer dashboard tools:
+- **Onboarded members** — list tagged with the dealer's promo code.
+- **Suggest Match** — same-tier-only candidates via the existing `suggestMatches`
+  scorer (extended with a `sameTierOnly` filter), sent through the same
+  Notification mechanism the admin panel's User Management curated-match action uses.
+- **Reminders** — onboarded members who are unpaid and/or inactive 5+/7+ days, each
+  with its own differentiated message (not a generic "come back" blast), sent via
+  Notification + best-effort email (`server/lib/mailer.js`, logs to console when SMTP
+  isn't configured, as in local dev).
 
 ## Running locally
 

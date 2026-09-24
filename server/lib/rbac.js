@@ -25,12 +25,21 @@ export function signVendorToken(vendor) {
   )
 }
 
+export function signDealerToken(dealer) {
+  return jwt.sign(
+    { id: dealer.id, type: 'dealer' },
+    SECRET,
+    { expiresIn: process.env.JWT_EXPIRY || '8h' }
+  )
+}
+
 // Distinct cookie names from server/index.js's member `accessToken` cookie —
-// employee, vendor, and member sessions can otherwise coexist in the same browser
-// (e.g. an admin previewing the public site) and must not overwrite one another.
+// employee, vendor, dealer, and member sessions can otherwise coexist in the same
+// browser (e.g. an admin previewing the public site) and must not overwrite one another.
 const bearerToken = (cookieName) => (req) => req.cookies?.[cookieName] || req.headers.authorization?.split(' ')[1]
 const employeeBearerToken = bearerToken('employeeAccessToken')
 const vendorBearerToken = bearerToken('vendorAccessToken')
+const dealerBearerToken = bearerToken('dealerAccessToken')
 
 /** Verifies an employee JWT and loads the active Employee row onto req.employee. */
 export function authenticateEmployee(prisma) {
@@ -70,6 +79,24 @@ export function authenticateVendor(prisma) {
       const vendor = await prisma.vendor.findUnique({ where: { id: decoded.id } })
       if (!vendor) return res.status(401).json({ message: 'Vendor not found' })
       req.vendor = vendor
+      next()
+    } catch {
+      return res.status(401).json({ message: 'Invalid or expired token' })
+    }
+  }
+}
+
+/** Verifies a dealer JWT and loads the active Dealer row onto req.dealer. */
+export function authenticateDealer(prisma) {
+  return async (req, res, next) => {
+    try {
+      const token = dealerBearerToken(req)
+      if (!token) return res.status(401).json({ message: 'Authentication required' })
+      const decoded = jwt.verify(token, SECRET)
+      if (decoded.type !== 'dealer') return res.status(401).json({ message: 'Invalid token' })
+      const dealer = await prisma.dealer.findUnique({ where: { id: decoded.id } })
+      if (!dealer || dealer.status !== 'active') return res.status(401).json({ message: 'Dealer not found or inactive' })
+      req.dealer = dealer
       next()
     } catch {
       return res.status(401).json({ message: 'Invalid or expired token' })
