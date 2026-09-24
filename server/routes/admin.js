@@ -4,7 +4,6 @@
 // requireRole(...) for the specific section.
 import express from 'express'
 import bcrypt from 'bcryptjs'
-import { seedCore } from '../../prisma/seed.js'
 import {
   EMPLOYEE_ROLES, signEmployeeToken, authenticateEmployee, requireRole, logEmployeeAction,
 } from '../lib/rbac.js'
@@ -59,27 +58,6 @@ export function createAdminRouter(prisma) {
   router.post('/logout', (req, res) => {
     res.clearCookie('employeeAccessToken')
     res.json({ message: 'Logged out' })
-  })
-
-  // POST /api/admin/_seed-production — TEMPORARY, remove after use. Runs the same
-  // idempotent seedCore() that `npm run db:seed` runs locally, against whichever
-  // DATABASE_URL this deployment has — there's no other way to reach production's
-  // DB from outside since Vercel's Postgres integration only exposes it to the
-  // running deployment, never decryptable via the management API. Gated on
-  // SEED_TRIGGER_SECRET (set directly in Vercel, never committed) rather than
-  // requireEmployee, since the whole point is to seed the very data an employee
-  // login would need to exist first. 404s (not 401) when the secret is unset or
-  // wrong, so the route's existence isn't observable from outside.
-  router.post('/_seed-production', async (req, res) => {
-    if (!process.env.SEED_TRIGGER_SECRET || req.headers['x-seed-secret'] !== process.env.SEED_TRIGGER_SECRET) {
-      return res.status(404).end()
-    }
-    try {
-      await seedCore(prisma)
-      res.json({ message: 'Seeded' })
-    } catch (err) {
-      res.status(500).json({ message: err.message })
-    }
   })
 
   // GET /api/admin/me — used by the admin SPA to know which sections/actions to show.
